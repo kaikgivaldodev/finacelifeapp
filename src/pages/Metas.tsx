@@ -27,7 +27,8 @@ import {
   Trash2,
   MoreHorizontal,
   CheckCircle2,
-  Loader2
+  Loader2,
+  Pencil
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -38,7 +39,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
 import { useState } from "react";
-import { useGoals, CreateGoalData, UpdateGoalData } from "@/hooks/useGoals";
+import { useGoals, CreateGoalData, UpdateGoalData, GoalWithCalculatedAmount } from "@/hooks/useGoals";
 import { format, startOfMonth } from "date-fns";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -58,8 +59,9 @@ export default function Metas() {
   const [isDepositDialogOpen, setIsDepositDialogOpen] = useState(false);
   const [selectedGoalForDeposit, setSelectedGoalForDeposit] = useState<{ id: string; name: string; current_amount: number } | null>(null);
   const [depositAmount, setDepositAmount] = useState("");
+  const [editingGoal, setEditingGoal] = useState<GoalWithCalculatedAmount | null>(null);
 
-  const [newGoal, setNewGoal] = useState({
+  const [formData, setFormData] = useState({
     name: "",
     type: "monthly_spending" as "monthly_spending" | "saving_goal",
     targetAmount: "",
@@ -73,12 +75,24 @@ export default function Metas() {
   const completedGoals = goals.filter(g => g.current_amount >= g.target_amount);
 
   const resetForm = () => {
-    setNewGoal({
+    setFormData({
       name: "",
       type: "monthly_spending",
       targetAmount: "",
       referenceMonth: startOfMonth(new Date()),
     });
+    setEditingGoal(null);
+  };
+
+  const openEditDialog = (goal: GoalWithCalculatedAmount) => {
+    setEditingGoal(goal);
+    setFormData({
+      name: goal.name,
+      type: goal.type,
+      targetAmount: goal.target_amount.toString(),
+      referenceMonth: goal.reference_month ? new Date(goal.reference_month) : startOfMonth(new Date()),
+    });
+    setIsDialogOpen(true);
   };
 
   const openDepositDialog = (goal: { id: string; name: string; current_amount: number }) => {
@@ -111,13 +125,13 @@ export default function Metas() {
   };
 
   const handleSubmit = async () => {
-    const amount = parseFloat(newGoal.targetAmount);
+    const amount = parseFloat(formData.targetAmount);
     
     const validation = goalSchema.safeParse({
-      name: newGoal.name,
-      type: newGoal.type,
+      name: formData.name,
+      type: formData.type,
       target_amount: isNaN(amount) ? 0 : amount,
-      reference_month: newGoal.referenceMonth,
+      reference_month: formData.referenceMonth,
     });
 
     if (!validation.success) {
@@ -125,15 +139,23 @@ export default function Metas() {
       return;
     }
 
-    const data: CreateGoalData = {
-      name: newGoal.name,
-      type: newGoal.type,
-      target_amount: amount,
-      reference_month: format(newGoal.referenceMonth, "yyyy-MM-dd"),
-    };
-
     try {
-      await createGoal(data);
+      if (editingGoal) {
+        await updateGoal({
+          id: editingGoal.id,
+          name: formData.name,
+          target_amount: amount,
+        });
+        toast.success("Meta atualizada!");
+      } else {
+        const data: CreateGoalData = {
+          name: formData.name,
+          type: formData.type,
+          target_amount: amount,
+          reference_month: format(formData.referenceMonth, "yyyy-MM-dd"),
+        };
+        await createGoal(data);
+      }
       setIsDialogOpen(false);
       resetForm();
     } catch (error) {
@@ -172,41 +194,45 @@ export default function Metas() {
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
-                <DialogTitle className="font-display">Nova Meta</DialogTitle>
+                <DialogTitle className="font-display">
+                  {editingGoal ? "Editar Meta" : "Nova Meta"}
+                </DialogTitle>
                 <DialogDescription>
-                  Defina um novo objetivo financeiro
+                  {editingGoal ? "Atualize os dados da meta" : "Defina um novo objetivo financeiro"}
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
-                {/* Tipo */}
-                <div className="grid grid-cols-2 gap-4">
-                  <Button
-                    type="button"
-                    variant={newGoal.type === "monthly_spending" ? "default" : "outline"}
-                    onClick={() => setNewGoal({ ...newGoal, type: "monthly_spending" })}
-                    className="w-full"
-                  >
-                    <TrendingUp className="mr-2 h-4 w-4" />
-                    Limite de gasto
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={newGoal.type === "saving_goal" ? "success" : "outline"}
-                    onClick={() => setNewGoal({ ...newGoal, type: "saving_goal" })}
-                    className="w-full"
-                  >
-                    <Target className="mr-2 h-4 w-4" />
-                    Economia
-                  </Button>
-                </div>
+                {/* Tipo - apenas para criação */}
+                {!editingGoal && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <Button
+                      type="button"
+                      variant={formData.type === "monthly_spending" ? "default" : "outline"}
+                      onClick={() => setFormData({ ...formData, type: "monthly_spending" })}
+                      className="w-full"
+                    >
+                      <TrendingUp className="mr-2 h-4 w-4" />
+                      Limite de gasto
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={formData.type === "saving_goal" ? "success" : "outline"}
+                      onClick={() => setFormData({ ...formData, type: "saving_goal" })}
+                      className="w-full"
+                    >
+                      <Target className="mr-2 h-4 w-4" />
+                      Economia
+                    </Button>
+                  </div>
+                )}
 
                 {/* Nome */}
                 <div className="grid gap-2">
                   <Label>Nome da meta *</Label>
                   <Input
                     placeholder="Ex: Gastar no máximo R$ 2.000"
-                    value={newGoal.name}
-                    onChange={(e) => setNewGoal({ ...newGoal, name: e.target.value })}
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   />
                 </div>
 
@@ -217,28 +243,30 @@ export default function Metas() {
                     type="number"
                     step="0.01"
                     placeholder="0,00"
-                    value={newGoal.targetAmount}
-                    onChange={(e) => setNewGoal({ ...newGoal, targetAmount: e.target.value })}
+                    value={formData.targetAmount}
+                    onChange={(e) => setFormData({ ...formData, targetAmount: e.target.value })}
                   />
                 </div>
 
-                {/* Mês de referência */}
-                <div className="grid gap-2">
-                  <Label>Mês de referência</Label>
-                  <DatePicker
-                    value={newGoal.referenceMonth}
-                    onChange={(date) => setNewGoal({ ...newGoal, referenceMonth: date || new Date() })}
-                    placeholder="Selecione o mês"
-                  />
-                </div>
+                {/* Mês de referência - apenas para criação */}
+                {!editingGoal && (
+                  <div className="grid gap-2">
+                    <Label>Mês de referência</Label>
+                    <DatePicker
+                      value={formData.referenceMonth}
+                      onChange={(date) => setFormData({ ...formData, referenceMonth: date || new Date() })}
+                      placeholder="Selecione o mês"
+                    />
+                  </div>
+                )}
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancelar
                 </Button>
-                <Button onClick={handleSubmit} disabled={isCreating}>
-                  {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Criar Meta
+                <Button onClick={handleSubmit} disabled={isCreating || isUpdating}>
+                  {(isCreating || isUpdating) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {editingGoal ? "Salvar" : "Criar Meta"}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -359,6 +387,11 @@ export default function Metas() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => openEditDialog(goal)}>
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
                               <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(goal.id)}>
                                 <Trash2 className="mr-2 h-4 w-4" />
                                 Excluir
@@ -445,6 +478,10 @@ export default function Metas() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => openEditDialog(goal)}>
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Editar
+                              </DropdownMenuItem>
                               {!isCompleted && (
                                 <DropdownMenuItem onClick={() => openDepositDialog({ id: goal.id, name: goal.name, current_amount: goal.current_amount })}>
                                   <Wallet className="mr-2 h-4 w-4" />
