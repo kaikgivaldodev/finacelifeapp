@@ -47,6 +47,10 @@ export interface CreateFixedBillData {
   auto_generate?: boolean;
 }
 
+export interface UpdateFixedBillData extends Partial<CreateFixedBillData> {
+  id: string;
+}
+
 export function useFixedBills() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -137,6 +141,50 @@ export function useFixedBills() {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async (data: UpdateFixedBillData) => {
+      const { id, ...updateData } = data;
+      
+      const { data: result, error } = await supabase
+        .from("fixed_bills")
+        .update({
+          ...updateData,
+          description: updateData.description || null,
+        })
+        .eq("id", id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+
+      // Atualizar a instância do mês atual se houver mudanças no valor ou dia de vencimento
+      if (updateData.amount !== undefined || updateData.due_day !== undefined) {
+        const currentMonth = startOfMonth(new Date());
+        const dueDay = updateData.due_day ?? result.due_day;
+        const dueDate = setDate(currentMonth, dueDay);
+
+        await supabase
+          .from("bills_instances")
+          .update({
+            amount: updateData.amount ?? result.amount,
+            due_date: format(dueDate, "yyyy-MM-dd"),
+          })
+          .eq("fixed_bill_id", id)
+          .eq("reference_month", format(currentMonth, "yyyy-MM-dd"));
+      }
+
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["fixed_bills"] });
+      queryClient.invalidateQueries({ queryKey: ["bills_instances"] });
+      toast.success("Conta fixa atualizada com sucesso!");
+    },
+    onError: (error: Error) => {
+      toast.error(`Erro ao atualizar: ${error.message}`);
+    },
+  });
+
   const markAsPaidMutation = useMutation({
     mutationFn: async (instanceId: string) => {
       const { error } = await supabase
@@ -194,8 +242,10 @@ export function useFixedBills() {
     isLoading: billsQuery.isLoading || instancesQuery.isLoading,
     error: billsQuery.error || instancesQuery.error,
     createBill: createMutation.mutateAsync,
+    updateBill: updateMutation.mutateAsync,
     markAsPaid: markAsPaidMutation.mutateAsync,
     deleteBill: deleteMutation.mutateAsync,
     isCreating: createMutation.isPending,
+    isUpdating: updateMutation.isPending,
   };
 }
