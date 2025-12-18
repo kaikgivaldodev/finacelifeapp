@@ -30,6 +30,7 @@ import {
   CreditCard,
   Calendar,
   MoreHorizontal,
+  Pencil,
   Trash2,
   AlertCircle,
   Loader2
@@ -43,7 +44,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
 import { useState } from "react";
-import { useCreditCards, CreateCreditCardData } from "@/hooks/useCreditCards";
+import { useCreditCards, CreateCreditCardData, CreditCard as CreditCardType, UpdateCreditCardData } from "@/hooks/useCreditCards";
 import { z } from "zod";
 import { toast } from "sonner";
 
@@ -66,11 +67,12 @@ const cardColors = [
 ];
 
 export default function Cartoes() {
-  const { cards, isLoading, createCard, deleteCard, isCreating } = useCreditCards();
+  const { cards, isLoading, createCard, updateCard, deleteCard, isCreating, isUpdating } = useCreditCards();
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState<string | null>(null);
-  const [newCard, setNewCard] = useState({
+  const [editingCard, setEditingCard] = useState<CreditCardType | null>(null);
+  const [formData, setFormData] = useState({
     name: "",
     lastDigits: "",
     limitAmount: "",
@@ -78,6 +80,7 @@ export default function Cartoes() {
     dueDay: "",
   });
 
+  const isEditing = !!editingCard;
   const hasCards = cards.length > 0;
 
   // Assign colors to cards
@@ -96,23 +99,36 @@ export default function Cartoes() {
   };
 
   const resetForm = () => {
-    setNewCard({
+    setFormData({
       name: "",
       lastDigits: "",
       limitAmount: "",
       bestPurchaseDay: "",
       dueDay: "",
     });
+    setEditingCard(null);
+  };
+
+  const openEditDialog = (card: CreditCardType) => {
+    setEditingCard(card);
+    setFormData({
+      name: card.name,
+      lastDigits: card.last_digits || "",
+      limitAmount: card.limit_amount.toString(),
+      bestPurchaseDay: card.best_purchase_day?.toString() || "",
+      dueDay: card.due_day.toString(),
+    });
+    setIsDialogOpen(true);
   };
 
   const handleSubmit = async () => {
-    const limitAmount = parseFloat(newCard.limitAmount);
-    const dueDay = parseInt(newCard.dueDay);
-    const bestPurchaseDay = newCard.bestPurchaseDay ? parseInt(newCard.bestPurchaseDay) : undefined;
+    const limitAmount = parseFloat(formData.limitAmount);
+    const dueDay = parseInt(formData.dueDay);
+    const bestPurchaseDay = formData.bestPurchaseDay ? parseInt(formData.bestPurchaseDay) : undefined;
     
     const validation = cardSchema.safeParse({
-      name: newCard.name,
-      last_digits: newCard.lastDigits,
+      name: formData.name,
+      last_digits: formData.lastDigits,
       limit_amount: isNaN(limitAmount) ? 0 : limitAmount,
       best_purchase_day: bestPurchaseDay,
       due_day: isNaN(dueDay) ? 0 : dueDay,
@@ -123,16 +139,27 @@ export default function Cartoes() {
       return;
     }
 
-    const data: CreateCreditCardData = {
-      name: newCard.name,
-      last_digits: newCard.lastDigits || undefined,
-      limit_amount: limitAmount,
-      best_purchase_day: bestPurchaseDay,
-      due_day: dueDay,
-    };
-
     try {
-      await createCard(data);
+      if (isEditing && editingCard) {
+        const updateData: UpdateCreditCardData = {
+          id: editingCard.id,
+          name: formData.name,
+          last_digits: formData.lastDigits || undefined,
+          limit_amount: limitAmount,
+          best_purchase_day: bestPurchaseDay,
+          due_day: dueDay,
+        };
+        await updateCard(updateData);
+      } else {
+        const data: CreateCreditCardData = {
+          name: formData.name,
+          last_digits: formData.lastDigits || undefined,
+          limit_amount: limitAmount,
+          best_purchase_day: bestPurchaseDay,
+          due_day: dueDay,
+        };
+        await createCard(data);
+      }
       setIsDialogOpen(false);
       resetForm();
     } catch (error) {
@@ -171,9 +198,11 @@ export default function Cartoes() {
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
-                <DialogTitle className="font-display">Novo Cartão</DialogTitle>
+                <DialogTitle className="font-display">
+                  {isEditing ? "Editar Cartão" : "Novo Cartão"}
+                </DialogTitle>
                 <DialogDescription>
-                  Cadastre um novo cartão de crédito
+                  {isEditing ? "Atualize os dados do cartão" : "Cadastre um novo cartão de crédito"}
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
@@ -182,8 +211,8 @@ export default function Cartoes() {
                   <Label>Nome do cartão *</Label>
                   <Input
                     placeholder="Ex: Nubank, Santander..."
-                    value={newCard.name}
-                    onChange={(e) => setNewCard({ ...newCard, name: e.target.value })}
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   />
                 </div>
 
@@ -194,8 +223,8 @@ export default function Cartoes() {
                     <Input
                       maxLength={4}
                       placeholder="0000"
-                      value={newCard.lastDigits}
-                      onChange={(e) => setNewCard({ ...newCard, lastDigits: e.target.value.replace(/\D/g, "") })}
+                      value={formData.lastDigits}
+                      onChange={(e) => setFormData({ ...formData, lastDigits: e.target.value.replace(/\D/g, "") })}
                     />
                   </div>
                   <div className="grid gap-2">
@@ -204,8 +233,8 @@ export default function Cartoes() {
                       type="number"
                       step="0.01"
                       placeholder="0,00"
-                      value={newCard.limitAmount}
-                      onChange={(e) => setNewCard({ ...newCard, limitAmount: e.target.value })}
+                      value={formData.limitAmount}
+                      onChange={(e) => setFormData({ ...formData, limitAmount: e.target.value })}
                     />
                   </div>
                 </div>
@@ -215,8 +244,8 @@ export default function Cartoes() {
                   <div className="grid gap-2">
                     <Label>Melhor dia de compra</Label>
                     <Select
-                      value={newCard.bestPurchaseDay}
-                      onValueChange={(v) => setNewCard({ ...newCard, bestPurchaseDay: v })}
+                      value={formData.bestPurchaseDay}
+                      onValueChange={(v) => setFormData({ ...formData, bestPurchaseDay: v })}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Dia" />
@@ -233,8 +262,8 @@ export default function Cartoes() {
                   <div className="grid gap-2">
                     <Label>Vencimento *</Label>
                     <Select
-                      value={newCard.dueDay}
-                      onValueChange={(v) => setNewCard({ ...newCard, dueDay: v })}
+                      value={formData.dueDay}
+                      onValueChange={(v) => setFormData({ ...formData, dueDay: v })}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Dia" />
@@ -254,9 +283,9 @@ export default function Cartoes() {
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancelar
                 </Button>
-                <Button onClick={handleSubmit} disabled={isCreating}>
-                  {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Salvar
+                <Button onClick={handleSubmit} disabled={isCreating || isUpdating}>
+                  {(isCreating || isUpdating) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isEditing ? "Atualizar" : "Salvar"}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -318,9 +347,19 @@ export default function Cartoes() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={(e) => {
+                            e.stopPropagation();
+                            openEditDialog(card);
+                          }}>
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Editar
+                          </DropdownMenuItem>
                           <DropdownMenuItem 
                             className="text-destructive"
-                            onClick={() => handleDelete(card.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(card.id);
+                            }}
                           >
                             <Trash2 className="mr-2 h-4 w-4" />
                             Excluir

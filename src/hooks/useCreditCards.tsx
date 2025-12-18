@@ -28,6 +28,10 @@ export interface CreateCreditCardData {
   due_day: number;
 }
 
+export interface UpdateCreditCardData extends Partial<CreateCreditCardData> {
+  id: string;
+}
+
 export function useCreditCards() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -78,6 +82,33 @@ export function useCreditCards() {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async (data: UpdateCreditCardData) => {
+      const { id, ...updateData } = data;
+      
+      const { data: result, error } = await supabase
+        .from("credit_cards")
+        .update({
+          ...updateData,
+          last_digits: updateData.last_digits || null,
+          best_purchase_day: updateData.best_purchase_day || null,
+        })
+        .eq("id", id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["credit_cards"] });
+      toast.success("Cartão atualizado com sucesso!");
+    },
+    onError: (error: Error) => {
+      toast.error(`Erro ao atualizar cartão: ${error.message}`);
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
@@ -101,7 +132,9 @@ export function useCreditCards() {
     isLoading: query.isLoading,
     error: query.error,
     createCard: createMutation.mutateAsync,
+    updateCard: updateMutation.mutateAsync,
     deleteCard: deleteMutation.mutateAsync,
     isCreating: createMutation.isPending,
+    isUpdating: updateMutation.isPending,
   };
 }
