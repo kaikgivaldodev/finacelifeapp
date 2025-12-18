@@ -8,6 +8,7 @@ import Dashboard from "./pages/Dashboard";
 import Lancamentos from "./pages/Lancamentos";
 import ContasFixas from "./pages/ContasFixas";
 import Cartoes from "./pages/Cartoes";
+import Fatura from "./pages/Fatura";
 import Contas from "./pages/Contas";
 import Metas from "./pages/Metas";
 import Relatorios from "./pages/Relatorios";
@@ -62,6 +63,7 @@ function AppRoutes() {
       <Route path="/contas" element={<ProtectedRoute><Contas /></ProtectedRoute>} />
       <Route path="/contas-fixas" element={<ProtectedRoute><ContasFixas /></ProtectedRoute>} />
       <Route path="/cartoes" element={<ProtectedRoute><Cartoes /></ProtectedRoute>} />
+      <Route path="/cartoes/:cardId/fatura" element={<ProtectedRoute><Fatura /></ProtectedRoute>} />
       <Route path="/metas" element={<ProtectedRoute><Metas /></ProtectedRoute>} />
       <Route path="/relatorios" element={<ProtectedRoute><Relatorios /></ProtectedRoute>} />
       <Route path="/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />

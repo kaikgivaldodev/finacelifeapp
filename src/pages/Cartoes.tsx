@@ -37,7 +37,8 @@ import {
   Upload,
   FileText,
   ChevronRight,
-  Receipt
+  Receipt,
+  Eye
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -49,6 +50,7 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useCreditCards, CreateCreditCardData, CreditCard as CreditCardType, UpdateCreditCardData } from "@/hooks/useCreditCards";
 import { useCreditCardStatements } from "@/hooks/useCreditCardStatements";
 import { ImportDialog } from "@/components/credit-card/ImportDialog";
@@ -77,6 +79,7 @@ const cardColors = [
 ];
 
 export default function Cartoes() {
+  const navigate = useNavigate();
   const { cards, isLoading, createCard, updateCard, deleteCard, isCreating, isUpdating } = useCreditCards();
   const { statements, transactions, isLoadingStatements, importTransactions, isImporting } = useCreditCardStatements();
   
@@ -461,10 +464,14 @@ export default function Cartoes() {
                     {/* Transactions count */}
                     {card.transactionsCount > 0 && (
                       <div className="mb-3">
-                        <Badge variant="secondary" className="text-xs">
-                          <Receipt className="mr-1 h-3 w-3" />
+                        <button
+                          onClick={() => navigate(`/cartoes/${card.id}/fatura?filter=imported`)}
+                          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+                        >
+                          <Receipt className="h-3 w-3" />
                           {card.transactionsCount} transações importadas
-                        </Badge>
+                          <ChevronRight className="h-3 w-3" />
+                        </button>
                       </div>
                     )}
 
@@ -482,15 +489,25 @@ export default function Cartoes() {
                           <span>Vence dia: {card.due_day}</span>
                         </div>
                       </div>
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        className="text-primary hover:text-primary"
-                        onClick={() => handleOpenImport(card.id)}
-                      >
-                        <Upload className="mr-1 h-4 w-4" />
-                        Importar
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="text-muted-foreground hover:text-foreground"
+                          onClick={() => handleOpenImport(card.id)}
+                        >
+                          <Upload className="mr-1 h-4 w-4" />
+                          Importar
+                        </Button>
+                        <Button 
+                          size="sm"
+                          className="text-primary-foreground"
+                          onClick={() => navigate(`/cartoes/${card.id}/fatura`)}
+                        >
+                          <Eye className="mr-1 h-4 w-4" />
+                          Ver fatura
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 );
