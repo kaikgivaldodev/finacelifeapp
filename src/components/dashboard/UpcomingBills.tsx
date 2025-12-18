@@ -1,7 +1,8 @@
 import { cn } from "@/lib/utils";
 import { formatCurrency, formatRelativeDate, formatShortDate } from "@/lib/formatters";
-import { Calendar, AlertCircle, CheckCircle2, Clock } from "lucide-react";
+import { Calendar, AlertCircle, CheckCircle2, Clock, Receipt } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 
 interface BillItem {
   id: string;
@@ -19,6 +20,8 @@ interface UpcomingBillsProps {
 }
 
 export function UpcomingBills({ bills, onPayBill, className }: UpcomingBillsProps) {
+  const navigate = useNavigate();
+
   const getStatusBadge = (status: BillItem["status"], dueDate: Date) => {
     const relative = formatRelativeDate(dueDate);
     
@@ -63,16 +66,26 @@ export function UpcomingBills({ bills, onPayBill, className }: UpcomingBillsProp
         <h3 className="font-display text-lg font-semibold text-foreground">
           Próximas Contas
         </h3>
-        <Button variant="ghost" size="sm" className="text-xs">
-          Ver todas
-        </Button>
+        {bills.length > 0 && (
+          <Button variant="ghost" size="sm" className="text-xs" onClick={() => navigate("/contas-fixas")}>
+            Ver todas
+          </Button>
+        )}
       </div>
 
       <div className="space-y-3">
         {bills.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">
-            Nenhuma conta pendente
-          </p>
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+              <Receipt className="h-6 w-6 text-muted-foreground" />
+            </div>
+            <p className="text-sm text-muted-foreground mb-3">
+              Nenhuma conta fixa cadastrada
+            </p>
+            <Button variant="outline" size="sm" onClick={() => navigate("/contas-fixas")}>
+              Cadastrar conta fixa
+            </Button>
+          </div>
         ) : (
           bills.map((bill, index) => (
             <div

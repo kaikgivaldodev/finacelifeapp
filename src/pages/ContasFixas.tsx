@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { EmptyState } from "@/components/ui/empty-state";
 import { formatCurrency, formatDueDay, formatRelativeDate } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 import { 
@@ -63,17 +64,8 @@ interface FixedBill {
   currentMonthDueDate: Date;
 }
 
-// Mock data
-const mockFixedBills: FixedBill[] = [
-  { id: "1", name: "Aluguel", description: "Apartamento centro", amount: 1500, category: "Moradia", dueDay: 10, isActive: true, currentMonthStatus: "pending", currentMonthDueDate: new Date(2024, 11, 10) },
-  { id: "2", name: "Conta de Luz", amount: 180, category: "Contas da casa", dueDay: 15, isActive: true, currentMonthStatus: "pending", currentMonthDueDate: new Date(2024, 11, 15) },
-  { id: "3", name: "Conta de Água", amount: 85, category: "Contas da casa", dueDay: 20, isActive: true, currentMonthStatus: "pending", currentMonthDueDate: new Date(2024, 11, 20) },
-  { id: "4", name: "Internet", description: "Fibra 300mb", amount: 120, category: "Contas da casa", dueDay: 5, isActive: true, currentMonthStatus: "paid", currentMonthDueDate: new Date(2024, 11, 5) },
-  { id: "5", name: "Netflix", amount: 55.90, category: "Assinaturas", dueDay: 3, isActive: true, currentMonthStatus: "overdue", currentMonthDueDate: new Date(2024, 11, 3) },
-  { id: "6", name: "Spotify", amount: 21.90, category: "Assinaturas", dueDay: 8, isActive: true, currentMonthStatus: "paid", currentMonthDueDate: new Date(2024, 11, 8) },
-  { id: "7", name: "Academia", amount: 89, category: "Saúde", dueDay: 1, isActive: true, currentMonthStatus: "paid", currentMonthDueDate: new Date(2024, 11, 1) },
-  { id: "8", name: "Plano de Celular", amount: 65, category: "Contas da casa", dueDay: 12, isActive: true, currentMonthStatus: "pending", currentMonthDueDate: new Date(2024, 11, 12) },
-];
+// Empty data - users start with nothing
+const fixedBills: FixedBill[] = [];
 
 const categories = [
   "Moradia",
@@ -110,10 +102,12 @@ export default function ContasFixas() {
   });
 
   // Calculate summaries
-  const totalMonthly = mockFixedBills.filter(b => b.isActive).reduce((sum, b) => sum + b.amount, 0);
-  const pendingCount = mockFixedBills.filter(b => b.currentMonthStatus === "pending").length;
-  const paidCount = mockFixedBills.filter(b => b.currentMonthStatus === "paid").length;
-  const overdueCount = mockFixedBills.filter(b => b.currentMonthStatus === "overdue").length;
+  const totalMonthly = fixedBills.filter(b => b.isActive).reduce((sum, b) => sum + b.amount, 0);
+  const pendingCount = fixedBills.filter(b => b.currentMonthStatus === "pending").length;
+  const paidCount = fixedBills.filter(b => b.currentMonthStatus === "paid").length;
+  const overdueCount = fixedBills.filter(b => b.currentMonthStatus === "overdue").length;
+
+  const hasData = fixedBills.length > 0;
 
   const getStatusBadge = (status: FixedBill["currentMonthStatus"], dueDate: Date) => {
     const relative = formatRelativeDate(dueDate);
@@ -275,143 +269,157 @@ export default function ContasFixas() {
           </Dialog>
         </div>
 
-        {/* Summary Card */}
-        <div className="rounded-xl border border-primary/20 bg-gradient-card p-6">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-gold shadow-glow">
-                <Wallet className="h-7 w-7 text-primary-foreground" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Custo mensal das contas fixas</p>
-                <p className="font-display text-3xl font-bold text-foreground">
-                  {formatCurrency(totalMonthly)}
-                </p>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-4">
-              <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-4 py-2">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">
-                  <span className="font-semibold text-foreground">{pendingCount}</span>
-                  <span className="text-muted-foreground"> pendentes</span>
-                </span>
-              </div>
-              <div className="flex items-center gap-2 rounded-lg bg-success/10 px-4 py-2">
-                <CheckCircle2 className="h-4 w-4 text-success" />
-                <span className="text-sm">
-                  <span className="font-semibold text-success">{paidCount}</span>
-                  <span className="text-success/80"> pagas</span>
-                </span>
-              </div>
-              {overdueCount > 0 && (
-                <div className="flex items-center gap-2 rounded-lg bg-destructive/10 px-4 py-2 animate-pulse">
-                  <AlertCircle className="h-4 w-4 text-destructive" />
-                  <span className="text-sm">
-                    <span className="font-semibold text-destructive">{overdueCount}</span>
-                    <span className="text-destructive/80"> vencidas</span>
-                  </span>
+        {/* Empty State */}
+        {!hasData ? (
+          <EmptyState
+            icon={Wallet}
+            title="Nenhuma conta fixa cadastrada"
+            description="Adicione aqui suas contas de água, luz, aluguel, internet, streaming e muito mais. Nunca mais esqueça um vencimento!"
+            actionLabel="Nova conta fixa"
+            onAction={() => setIsDialogOpen(true)}
+            className="min-h-[400px]"
+          />
+        ) : (
+          <>
+            {/* Summary Card */}
+            <div className="rounded-xl border border-primary/20 bg-gradient-card p-6">
+              <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-gold shadow-glow">
+                    <Wallet className="h-7 w-7 text-primary-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Custo mensal das contas fixas</p>
+                    <p className="font-display text-3xl font-bold text-foreground">
+                      {formatCurrency(totalMonthly)}
+                    </p>
+                  </div>
                 </div>
-              )}
+                <div className="flex flex-wrap gap-4">
+                  <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-4 py-2">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm">
+                      <span className="font-semibold text-foreground">{pendingCount}</span>
+                      <span className="text-muted-foreground"> pendentes</span>
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 rounded-lg bg-success/10 px-4 py-2">
+                    <CheckCircle2 className="h-4 w-4 text-success" />
+                    <span className="text-sm">
+                      <span className="font-semibold text-success">{paidCount}</span>
+                      <span className="text-success/80"> pagas</span>
+                    </span>
+                  </div>
+                  {overdueCount > 0 && (
+                    <div className="flex items-center gap-2 rounded-lg bg-destructive/10 px-4 py-2 animate-pulse">
+                      <AlertCircle className="h-4 w-4 text-destructive" />
+                      <span className="text-sm">
+                        <span className="font-semibold text-destructive">{overdueCount}</span>
+                        <span className="text-destructive/80"> vencidas</span>
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
 
-        {/* Table */}
-        <div className="rounded-xl border border-border bg-card">
-          <div className="border-b border-border p-4">
-            <h3 className="font-display font-semibold text-foreground">Suas contas fixas</h3>
-          </div>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nome</TableHead>
-                <TableHead>Categoria</TableHead>
-                <TableHead>Valor</TableHead>
-                <TableHead>Vencimento</TableHead>
-                <TableHead>Status do mês</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {mockFixedBills.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
-                    Nenhuma conta fixa cadastrada
-                  </TableCell>
-                </TableRow>
-              ) : (
-                mockFixedBills.map((bill, index) => (
-                  <TableRow 
-                    key={bill.id}
-                    className={cn(
-                      "animate-fade-in",
-                      !bill.isActive && "opacity-50"
-                    )}
-                    style={{ animationDelay: `${index * 30}ms` }}
-                  >
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-lg">
-                          {getCategoryIcon(bill.category)}
-                        </div>
-                        <div>
-                          <p className="font-medium text-foreground">{bill.name}</p>
-                          {bill.description && (
-                            <p className="text-xs text-muted-foreground">{bill.description}</p>
-                          )}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{bill.category}</TableCell>
-                    <TableCell className="font-semibold text-foreground">
-                      {formatCurrency(bill.amount)}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {formatDueDay(bill.dueDay)}
-                    </TableCell>
-                    <TableCell>
-                      {getStatusBadge(bill.currentMonthStatus, bill.currentMonthDueDate)}
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {bill.currentMonthStatus !== "paid" && (
-                            <>
-                              <DropdownMenuItem className="text-success">
-                                <CheckCircle2 className="mr-2 h-4 w-4" />
-                                Marcar como paga
+            {/* Table */}
+            <div className="rounded-xl border border-border bg-card">
+              <div className="border-b border-border p-4">
+                <h3 className="font-display font-semibold text-foreground">Suas contas fixas</h3>
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Categoria</TableHead>
+                    <TableHead>Valor</TableHead>
+                    <TableHead>Vencimento</TableHead>
+                    <TableHead>Status do mês</TableHead>
+                    <TableHead className="w-[50px]"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {fixedBills.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                        Nenhuma conta fixa cadastrada
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    fixedBills.map((bill, index) => (
+                      <TableRow 
+                        key={bill.id}
+                        className={cn(
+                          "animate-fade-in",
+                          !bill.isActive && "opacity-50"
+                        )}
+                        style={{ animationDelay: `${index * 30}ms` }}
+                      >
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-lg">
+                              {getCategoryIcon(bill.category)}
+                            </div>
+                            <div>
+                              <p className="font-medium text-foreground">{bill.name}</p>
+                              {bill.description && (
+                                <p className="text-xs text-muted-foreground">{bill.description}</p>
+                              )}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{bill.category}</TableCell>
+                        <TableCell className="font-semibold text-foreground">
+                          {formatCurrency(bill.amount)}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {formatDueDay(bill.dueDay)}
+                        </TableCell>
+                        <TableCell>
+                          {getStatusBadge(bill.currentMonthStatus, bill.currentMonthDueDate)}
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {bill.currentMonthStatus !== "paid" && (
+                                <>
+                                  <DropdownMenuItem className="text-success">
+                                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                                    Marcar como paga
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                </>
+                              )}
+                              <DropdownMenuItem>
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem>
+                                <Power className="mr-2 h-4 w-4" />
+                                {bill.isActive ? "Desativar" : "Ativar"}
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                            </>
-                          )}
-                          <DropdownMenuItem>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <Power className="mr-2 h-4 w-4" />
-                            {bill.isActive ? "Desativar" : "Ativar"}
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-destructive">
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Excluir
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+                              <DropdownMenuItem className="text-destructive">
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Excluir
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </>
+        )}
       </div>
     </MainLayout>
   );

@@ -2,6 +2,8 @@ import { cn } from "@/lib/utils";
 import { formatCurrency, formatPercentage } from "@/lib/formatters";
 import { Target, TrendingUp } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 
 interface Goal {
   id: string;
@@ -17,6 +19,8 @@ interface GoalProgressProps {
 }
 
 export function GoalProgress({ goals, className }: GoalProgressProps) {
+  const navigate = useNavigate();
+
   return (
     <div className={cn("rounded-xl border border-border bg-card p-5", className)}>
       <div className="mb-4 flex items-center justify-between">
@@ -28,9 +32,17 @@ export function GoalProgress({ goals, className }: GoalProgressProps) {
 
       <div className="space-y-4">
         {goals.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">
-            Nenhuma meta definida
-          </p>
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+              <Target className="h-6 w-6 text-muted-foreground" />
+            </div>
+            <p className="text-sm text-muted-foreground mb-3">
+              Nenhuma meta definida
+            </p>
+            <Button variant="outline" size="sm" onClick={() => navigate("/metas")}>
+              Criar meta
+            </Button>
+          </div>
         ) : (
           goals.map((goal) => {
             const progress = Math.min((goal.currentAmount / goal.targetAmount) * 100, 100);

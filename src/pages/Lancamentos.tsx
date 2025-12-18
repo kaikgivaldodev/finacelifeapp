@@ -26,6 +26,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { EmptyState } from "@/components/ui/empty-state";
 import { formatCurrency, formatDate } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 import { 
@@ -37,7 +38,7 @@ import {
   MoreHorizontal,
   Pencil,
   Trash2,
-  Calendar
+  Receipt
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -58,17 +59,8 @@ interface Transaction {
   amount: number;
 }
 
-// Mock data
-const mockTransactions: Transaction[] = [
-  { id: "1", date: new Date(2024, 11, 15), type: "income", category: "Salário", description: "Salário mensal", account: "Nubank", amount: 5500 },
-  { id: "2", date: new Date(2024, 11, 14), type: "expense", category: "Alimentação", description: "Supermercado", account: "Nubank", amount: 450 },
-  { id: "3", date: new Date(2024, 11, 13), type: "expense", category: "Transporte", description: "Combustível", account: "Carteira", amount: 200 },
-  { id: "4", date: new Date(2024, 11, 12), type: "expense", category: "Lazer", description: "Cinema", account: "Nubank", amount: 80 },
-  { id: "5", date: new Date(2024, 11, 11), type: "income", category: "Extra", description: "Freelance", account: "Nubank", amount: 1200 },
-  { id: "6", date: new Date(2024, 11, 10), type: "expense", category: "Moradia", description: "Aluguel", account: "Nubank", amount: 1500 },
-  { id: "7", date: new Date(2024, 11, 9), type: "expense", category: "Saúde", description: "Farmácia", account: "Carteira", amount: 120 },
-  { id: "8", date: new Date(2024, 11, 8), type: "expense", category: "Contas da casa", description: "Conta de luz", account: "Nubank", amount: 180 },
-];
+// Empty data - users start with nothing
+const transactions: Transaction[] = [];
 
 const categories = [
   "Todas",
@@ -97,7 +89,7 @@ export default function Lancamentos() {
     description: "",
   });
 
-  const filteredTransactions = mockTransactions.filter((t) => {
+  const filteredTransactions = transactions.filter((t) => {
     if (typeFilter !== "all" && t.type !== typeFilter) return false;
     if (categoryFilter !== "Todas" && t.category !== categoryFilter) return false;
     if (searchTerm && !t.description.toLowerCase().includes(searchTerm.toLowerCase())) return false;
@@ -106,6 +98,8 @@ export default function Lancamentos() {
 
   const totalIncome = filteredTransactions.filter(t => t.type === "income").reduce((sum, t) => sum + t.amount, 0);
   const totalExpenses = filteredTransactions.filter(t => t.type === "expense").reduce((sum, t) => sum + t.amount, 0);
+
+  const hasData = transactions.length > 0;
 
   return (
     <MainLayout>
@@ -192,19 +186,12 @@ export default function Lancamentos() {
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="account">Conta</Label>
-                  <Select
+                  <Input
+                    id="account"
+                    placeholder="Ex: Nubank, Carteira..."
                     value={newTransaction.account}
-                    onValueChange={(v) => setNewTransaction({ ...newTransaction, account: v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Nubank">Nubank</SelectItem>
-                      <SelectItem value="Carteira">Carteira</SelectItem>
-                      <SelectItem value="Poupança">Poupança</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    onChange={(e) => setNewTransaction({ ...newTransaction, account: e.target.value })}
+                  />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="description">Descrição (opcional)</Label>
@@ -228,152 +215,166 @@ export default function Lancamentos() {
           </Dialog>
         </div>
 
-        {/* Summary Cards */}
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div className="rounded-lg border border-border bg-card p-4">
-            <p className="text-sm text-muted-foreground">Total de Receitas</p>
-            <p className="mt-1 font-display text-xl font-bold text-success">
-              {formatCurrency(totalIncome)}
-            </p>
-          </div>
-          <div className="rounded-lg border border-border bg-card p-4">
-            <p className="text-sm text-muted-foreground">Total de Despesas</p>
-            <p className="mt-1 font-display text-xl font-bold text-destructive">
-              {formatCurrency(totalExpenses)}
-            </p>
-          </div>
-          <div className="rounded-lg border border-border bg-card p-4">
-            <p className="text-sm text-muted-foreground">Saldo</p>
-            <p className={cn(
-              "mt-1 font-display text-xl font-bold",
-              totalIncome - totalExpenses >= 0 ? "text-success" : "text-destructive"
-            )}>
-              {formatCurrency(totalIncome - totalExpenses)}
-            </p>
-          </div>
-        </div>
+        {/* Empty State */}
+        {!hasData ? (
+          <EmptyState
+            icon={Receipt}
+            title="Nenhum lançamento cadastrado"
+            description="Você ainda não tem receitas ou despesas registradas. Comece adicionando seu primeiro lançamento para acompanhar suas finanças."
+            actionLabel="Criar lançamento"
+            onAction={() => setIsDialogOpen(true)}
+            className="min-h-[400px]"
+          />
+        ) : (
+          <>
+            {/* Summary Cards */}
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="rounded-lg border border-border bg-card p-4">
+                <p className="text-sm text-muted-foreground">Total de Receitas</p>
+                <p className="mt-1 font-display text-xl font-bold text-success">
+                  {formatCurrency(totalIncome)}
+                </p>
+              </div>
+              <div className="rounded-lg border border-border bg-card p-4">
+                <p className="text-sm text-muted-foreground">Total de Despesas</p>
+                <p className="mt-1 font-display text-xl font-bold text-destructive">
+                  {formatCurrency(totalExpenses)}
+                </p>
+              </div>
+              <div className="rounded-lg border border-border bg-card p-4">
+                <p className="text-sm text-muted-foreground">Saldo</p>
+                <p className={cn(
+                  "mt-1 font-display text-xl font-bold",
+                  totalIncome - totalExpenses >= 0 ? "text-success" : "text-destructive"
+                )}>
+                  {formatCurrency(totalIncome - totalExpenses)}
+                </p>
+              </div>
+            </div>
 
-        {/* Filters */}
-        <div className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-center">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por descrição..."
-              className="pl-10"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <div className="flex gap-2">
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-[140px]">
-                <Filter className="mr-2 h-4 w-4" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="income">Receitas</SelectItem>
-                <SelectItem value="expense">Despesas</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-[160px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map((cat) => (
-                  <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
+            {/* Filters */}
+            <div className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-center">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por descrição..."
+                  className="pl-10"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              <div className="flex gap-2">
+                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                  <SelectTrigger className="w-[140px]">
+                    <Filter className="mr-2 h-4 w-4" />
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="income">Receitas</SelectItem>
+                    <SelectItem value="expense">Despesas</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger className="w-[160px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
 
-        {/* Table */}
-        <div className="rounded-lg border border-border bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Data</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Categoria</TableHead>
-                <TableHead>Descrição</TableHead>
-                <TableHead>Conta</TableHead>
-                <TableHead className="text-right">Valor</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredTransactions.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
-                    Nenhum lançamento encontrado
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredTransactions.map((transaction, index) => (
-                  <TableRow 
-                    key={transaction.id}
-                    className="animate-fade-in"
-                    style={{ animationDelay: `${index * 30}ms` }}
-                  >
-                    <TableCell className="font-medium">
-                      {formatDate(transaction.date)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={transaction.type === "income" ? "default" : "destructive"}
-                        className={cn(
-                          "gap-1",
-                          transaction.type === "income" 
-                            ? "bg-success/10 text-success hover:bg-success/20" 
-                            : "bg-destructive/10 text-destructive hover:bg-destructive/20"
-                        )}
-                      >
-                        {transaction.type === "income" ? (
-                          <TrendingUp className="h-3 w-3" />
-                        ) : (
-                          <TrendingDown className="h-3 w-3" />
-                        )}
-                        {transaction.type === "income" ? "Receita" : "Despesa"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{transaction.category}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {transaction.description}
-                    </TableCell>
-                    <TableCell>{transaction.account}</TableCell>
-                    <TableCell className={cn(
-                      "text-right font-semibold",
-                      transaction.type === "income" ? "text-success" : "text-destructive"
-                    )}>
-                      {transaction.type === "income" ? "+" : "-"}{formatCurrency(transaction.amount)}
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive">
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Excluir
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
+            {/* Table */}
+            <div className="rounded-lg border border-border bg-card">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Categoria</TableHead>
+                    <TableHead>Descrição</TableHead>
+                    <TableHead>Conta</TableHead>
+                    <TableHead className="text-right">Valor</TableHead>
+                    <TableHead className="w-[50px]"></TableHead>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+                </TableHeader>
+                <TableBody>
+                  {filteredTransactions.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
+                        Nenhum lançamento encontrado
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredTransactions.map((transaction, index) => (
+                      <TableRow 
+                        key={transaction.id}
+                        className="animate-fade-in"
+                        style={{ animationDelay: `${index * 30}ms` }}
+                      >
+                        <TableCell className="font-medium">
+                          {formatDate(transaction.date)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={transaction.type === "income" ? "default" : "destructive"}
+                            className={cn(
+                              "gap-1",
+                              transaction.type === "income" 
+                                ? "bg-success/10 text-success hover:bg-success/20" 
+                                : "bg-destructive/10 text-destructive hover:bg-destructive/20"
+                            )}
+                          >
+                            {transaction.type === "income" ? (
+                              <TrendingUp className="h-3 w-3" />
+                            ) : (
+                              <TrendingDown className="h-3 w-3" />
+                            )}
+                            {transaction.type === "income" ? "Receita" : "Despesa"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{transaction.category}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {transaction.description}
+                        </TableCell>
+                        <TableCell>{transaction.account}</TableCell>
+                        <TableCell className={cn(
+                          "text-right font-semibold",
+                          transaction.type === "income" ? "text-success" : "text-destructive"
+                        )}>
+                          {transaction.type === "income" ? "+" : "-"}{formatCurrency(transaction.amount)}
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem>
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="text-destructive">
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Excluir
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </>
+        )}
       </div>
     </MainLayout>
   );
