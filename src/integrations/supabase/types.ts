@@ -14,7 +14,314 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      accounts: {
+        Row: {
+          created_at: string
+          id: string
+          initial_balance: number
+          name: string
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          initial_balance?: number
+          name: string
+          type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          initial_balance?: number
+          name?: string
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      bills_instances: {
+        Row: {
+          amount: number
+          created_at: string
+          due_date: string
+          fixed_bill_id: string
+          id: string
+          paid_at: string | null
+          payment_transaction_id: string | null
+          reference_month: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          due_date: string
+          fixed_bill_id: string
+          id?: string
+          paid_at?: string | null
+          payment_transaction_id?: string | null
+          reference_month: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          due_date?: string
+          fixed_bill_id?: string
+          id?: string
+          paid_at?: string | null
+          payment_transaction_id?: string | null
+          reference_month?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bills_instances_fixed_bill_id_fkey"
+            columns: ["fixed_bill_id"]
+            isOneToOne: false
+            referencedRelation: "fixed_bills"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      credit_cards: {
+        Row: {
+          best_purchase_day: number | null
+          created_at: string
+          due_day: number
+          id: string
+          is_active: boolean
+          last_digits: string | null
+          limit_amount: number
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          best_purchase_day?: number | null
+          created_at?: string
+          due_day: number
+          id?: string
+          is_active?: boolean
+          last_digits?: string | null
+          limit_amount?: number
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          best_purchase_day?: number | null
+          created_at?: string
+          due_day?: number
+          id?: string
+          is_active?: boolean
+          last_digits?: string | null
+          limit_amount?: number
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      fixed_bills: {
+        Row: {
+          amount: number
+          auto_generate: boolean
+          billing_type: string
+          category: string
+          created_at: string
+          description: string | null
+          due_day: number
+          id: string
+          is_active: boolean
+          name: string
+          payment_account_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          auto_generate?: boolean
+          billing_type?: string
+          category: string
+          created_at?: string
+          description?: string | null
+          due_day: number
+          id?: string
+          is_active?: boolean
+          name: string
+          payment_account_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          auto_generate?: boolean
+          billing_type?: string
+          category?: string
+          created_at?: string
+          description?: string | null
+          due_day?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          payment_account_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fixed_bills_payment_account_id_fkey"
+            columns: ["payment_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      goals: {
+        Row: {
+          created_at: string
+          current_amount: number
+          id: string
+          name: string
+          reference_month: string | null
+          target_amount: number
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_amount?: number
+          id?: string
+          name: string
+          reference_month?: string | null
+          target_amount: number
+          type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_amount?: number
+          id?: string
+          name?: string
+          reference_month?: string | null
+          target_amount?: number
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          id: string
+          name: string | null
+          plan: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          name?: string | null
+          plan?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string | null
+          plan?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      transactions: {
+        Row: {
+          account_id: string | null
+          amount: number
+          category: string
+          created_at: string
+          credit_card_id: string | null
+          date: string
+          description: string | null
+          fixed_bill_instance_id: string | null
+          id: string
+          is_recurring: boolean
+          payment_method: string
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          amount: number
+          category: string
+          created_at?: string
+          credit_card_id?: string | null
+          date: string
+          description?: string | null
+          fixed_bill_instance_id?: string | null
+          id?: string
+          is_recurring?: boolean
+          payment_method: string
+          type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string | null
+          amount?: number
+          category?: string
+          created_at?: string
+          credit_card_id?: string | null
+          date?: string
+          description?: string | null
+          fixed_bill_instance_id?: string | null
+          id?: string
+          is_recurring?: boolean
+          payment_method?: string
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_credit_card_id_fkey"
+            columns: ["credit_card_id"]
+            isOneToOne: false
+            referencedRelation: "credit_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_fixed_bill_instance_id_fkey"
+            columns: ["fixed_bill_instance_id"]
+            isOneToOne: false
+            referencedRelation: "bills_instances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
