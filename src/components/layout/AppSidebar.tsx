@@ -24,7 +24,8 @@ interface SidebarItem {
 const menuItems: SidebarItem[] = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/" },
   { label: "Lançamentos", icon: Receipt, href: "/lancamentos" },
-  { label: "Contas Fixas", icon: Wallet, href: "/contas-fixas" },
+  { label: "Contas Bancárias", icon: Wallet, href: "/contas" },
+  { label: "Contas Fixas", icon: Receipt, href: "/contas-fixas" },
   { label: "Cartões de Crédito", icon: CreditCard, href: "/cartoes" },
   { label: "Metas", icon: Target, href: "/metas" },
   { label: "Relatórios", icon: BarChart3, href: "/relatorios" },
