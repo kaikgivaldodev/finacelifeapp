@@ -60,6 +60,7 @@ export default function Metas() {
   const [selectedGoalForDeposit, setSelectedGoalForDeposit] = useState<{ id: string; name: string; current_amount: number } | null>(null);
   const [depositAmount, setDepositAmount] = useState("");
   const [editingGoal, setEditingGoal] = useState<GoalWithCalculatedAmount | null>(null);
+  const [filterType, setFilterType] = useState<"all" | "monthly_spending" | "saving_goal">("all");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -73,6 +74,10 @@ export default function Metas() {
   const savingGoals = goals.filter(g => g.type === "saving_goal");
   const totalSaved = savingGoals.reduce((sum, g) => sum + g.current_amount, 0);
   const completedGoals = goals.filter(g => g.current_amount >= g.target_amount);
+
+  // Metas filtradas baseado no filtro selecionado
+  const filteredSpendingGoals = filterType === "saving_goal" ? [] : spendingGoals;
+  const filteredSavingGoals = filterType === "monthly_spending" ? [] : savingGoals;
 
   const resetForm = () => {
     setFormData({
@@ -332,8 +337,35 @@ export default function Metas() {
               </div>
             </div>
 
+            {/* Filters */}
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant={filterType === "all" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setFilterType("all")}
+              >
+                Todas ({goals.length})
+              </Button>
+              <Button
+                variant={filterType === "monthly_spending" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setFilterType("monthly_spending")}
+              >
+                <TrendingUp className="mr-2 h-4 w-4" />
+                Limite de gasto ({spendingGoals.length})
+              </Button>
+              <Button
+                variant={filterType === "saving_goal" ? "success" : "outline"}
+                size="sm"
+                onClick={() => setFilterType("saving_goal")}
+              >
+                <Target className="mr-2 h-4 w-4" />
+                Economia ({savingGoals.length})
+              </Button>
+            </div>
+
             {/* Spending Goals */}
-            {spendingGoals.length > 0 && (
+            {filteredSpendingGoals.length > 0 && (
               <div className="rounded-xl border border-border bg-card">
                 <div className="border-b border-border p-4">
                   <div className="flex items-center gap-2">
@@ -345,7 +377,7 @@ export default function Metas() {
                   </p>
                 </div>
                 <div className="divide-y divide-border">
-                  {spendingGoals.map((goal, index) => {
+                  {filteredSpendingGoals.map((goal, index) => {
                     const progress = Math.min((goal.current_amount / goal.target_amount) * 100, 100);
                     const isOverBudget = goal.current_amount > goal.target_amount;
                     
@@ -425,7 +457,7 @@ export default function Metas() {
             )}
 
             {/* Saving Goals */}
-            {savingGoals.length > 0 && (
+            {filteredSavingGoals.length > 0 && (
               <div className="rounded-xl border border-border bg-card">
                 <div className="border-b border-border p-4">
                   <div className="flex items-center gap-2">
@@ -437,7 +469,7 @@ export default function Metas() {
                   </p>
                 </div>
                 <div className="grid gap-4 p-4 sm:grid-cols-2">
-                  {savingGoals.map((goal, index) => {
+                  {filteredSavingGoals.map((goal, index) => {
                     const progress = Math.min((goal.current_amount / goal.target_amount) * 100, 100);
                     const isCompleted = goal.current_amount >= goal.target_amount;
                     
