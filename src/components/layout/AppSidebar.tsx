@@ -41,7 +41,8 @@ export function AppSidebar() {
 
   const isActive = (href: string) => {
     if (href === "/") return location.pathname === "/";
-    return location.pathname.startsWith(href);
+    // Exact match OR starts with href + "/" (for subroutes)
+    return location.pathname === href || location.pathname.startsWith(href + "/");
   };
 
   return (
