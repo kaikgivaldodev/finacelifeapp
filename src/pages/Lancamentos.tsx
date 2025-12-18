@@ -321,7 +321,7 @@ export default function Lancamentos() {
                       </SelectTrigger>
                       <SelectContent>
                         {cards.length === 0 ? (
-                          <SelectItem value="" disabled>
+                          <SelectItem value="no_cards" disabled>
                             Nenhum cartão cadastrado
                           </SelectItem>
                         ) : (
