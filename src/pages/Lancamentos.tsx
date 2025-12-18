@@ -54,7 +54,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { useTransactions, CreateTransactionData } from "@/hooks/useTransactions";
+import { useTransactions, CreateTransactionData, Transaction, UpdateTransactionData } from "@/hooks/useTransactions";
 import { useCreditCards } from "@/hooks/useCreditCards";
 import { useAccounts } from "@/hooks/useAccounts";
 import { format } from "date-fns";
@@ -107,7 +107,7 @@ const transactionSchema = z.object({
 });
 
 export default function Lancamentos() {
-  const { transactions, isLoading, createTransaction, deleteTransaction, isCreating } = useTransactions();
+  const { transactions, isLoading, createTransaction, updateTransaction, deleteTransaction, isCreating, isUpdating } = useTransactions();
   const { cards } = useCreditCards();
   const { accounts } = useAccounts();
   
@@ -115,8 +115,9 @@ export default function Lancamentos() {
   const [categoryFilter, setCategoryFilter] = useState("Todas");
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   
-  const [newTransaction, setNewTransaction] = useState({
+  const [formData, setFormData] = useState({
     type: "expense" as "income" | "expense",
     date: new Date(),
     amount: "",
@@ -138,10 +139,11 @@ export default function Lancamentos() {
   const totalExpenses = filteredTransactions.filter(t => t.type === "expense").reduce((sum, t) => sum + t.amount, 0);
 
   const hasData = transactions.length > 0;
-  const showCardSelect = ["Crédito", "Débito"].includes(newTransaction.payment_method);
+  const showCardSelect = ["Crédito", "Débito"].includes(formData.payment_method);
+  const isEditing = !!editingTransaction;
 
   const resetForm = () => {
-    setNewTransaction({
+    setFormData({
       type: "expense",
       date: new Date(),
       amount: "",
@@ -151,20 +153,36 @@ export default function Lancamentos() {
       credit_card_id: "",
       account_id: "",
     });
+    setEditingTransaction(null);
+  };
+
+  const openEditDialog = (transaction: Transaction) => {
+    setEditingTransaction(transaction);
+    setFormData({
+      type: transaction.type as "income" | "expense",
+      date: new Date(transaction.date + "T12:00:00"),
+      amount: transaction.amount.toString(),
+      category: transaction.category,
+      description: transaction.description || "",
+      payment_method: transaction.payment_method,
+      credit_card_id: transaction.credit_card_id || "",
+      account_id: transaction.account_id || "",
+    });
+    setIsDialogOpen(true);
   };
 
   const handleSubmit = async () => {
-    const amount = parseFloat(newTransaction.amount);
+    const amount = parseFloat(formData.amount);
     
     const validation = transactionSchema.safeParse({
-      type: newTransaction.type,
-      date: newTransaction.date,
+      type: formData.type,
+      date: formData.date,
       amount: isNaN(amount) ? 0 : amount,
-      category: newTransaction.category,
-      payment_method: newTransaction.payment_method,
-      credit_card_id: newTransaction.credit_card_id || null,
-      account_id: newTransaction.account_id || null,
-      description: newTransaction.description,
+      category: formData.category,
+      payment_method: formData.payment_method,
+      credit_card_id: formData.credit_card_id || null,
+      account_id: formData.account_id || null,
+      description: formData.description,
     });
 
     if (!validation.success) {
@@ -172,19 +190,33 @@ export default function Lancamentos() {
       return;
     }
 
-    const data: CreateTransactionData = {
-      type: newTransaction.type,
-      date: format(newTransaction.date, "yyyy-MM-dd"),
-      amount,
-      category: newTransaction.category,
-      payment_method: newTransaction.payment_method,
-      credit_card_id: showCardSelect ? newTransaction.credit_card_id : null,
-      account_id: newTransaction.account_id || null,
-      description: newTransaction.description || undefined,
-    };
-
     try {
-      await createTransaction(data);
+      if (isEditing && editingTransaction) {
+        const updateData: UpdateTransactionData = {
+          id: editingTransaction.id,
+          type: formData.type,
+          date: format(formData.date, "yyyy-MM-dd"),
+          amount,
+          category: formData.category,
+          payment_method: formData.payment_method,
+          credit_card_id: showCardSelect ? formData.credit_card_id : null,
+          account_id: formData.account_id || null,
+          description: formData.description || undefined,
+        };
+        await updateTransaction(updateData);
+      } else {
+        const data: CreateTransactionData = {
+          type: formData.type,
+          date: format(formData.date, "yyyy-MM-dd"),
+          amount,
+          category: formData.category,
+          payment_method: formData.payment_method,
+          credit_card_id: showCardSelect ? formData.credit_card_id : null,
+          account_id: formData.account_id || null,
+          description: formData.description || undefined,
+        };
+        await createTransaction(data);
+      }
       setIsDialogOpen(false);
       resetForm();
     } catch (error) {
@@ -223,9 +255,11 @@ export default function Lancamentos() {
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
-                <DialogTitle className="font-display">Novo Lançamento</DialogTitle>
+                <DialogTitle className="font-display">
+                  {isEditing ? "Editar Lançamento" : "Novo Lançamento"}
+                </DialogTitle>
                 <DialogDescription>
-                  Adicione uma nova receita ou despesa
+                  {isEditing ? "Atualize os dados do lançamento" : "Adicione uma nova receita ou despesa"}
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
@@ -233,8 +267,8 @@ export default function Lancamentos() {
                 <div className="grid grid-cols-2 gap-4">
                   <Button
                     type="button"
-                    variant={newTransaction.type === "income" ? "success" : "outline"}
-                    onClick={() => setNewTransaction({ ...newTransaction, type: "income" })}
+                    variant={formData.type === "income" ? "success" : "outline"}
+                    onClick={() => setFormData({ ...formData, type: "income" })}
                     className="w-full"
                   >
                     <TrendingUp className="mr-2 h-4 w-4" />
@@ -242,8 +276,8 @@ export default function Lancamentos() {
                   </Button>
                   <Button
                     type="button"
-                    variant={newTransaction.type === "expense" ? "danger" : "outline"}
-                    onClick={() => setNewTransaction({ ...newTransaction, type: "expense" })}
+                    variant={formData.type === "expense" ? "danger" : "outline"}
+                    onClick={() => setFormData({ ...formData, type: "expense" })}
                     className="w-full"
                   >
                     <TrendingDown className="mr-2 h-4 w-4" />
@@ -255,8 +289,8 @@ export default function Lancamentos() {
                 <div className="grid gap-2">
                   <Label>Data *</Label>
                   <DatePicker
-                    value={newTransaction.date}
-                    onChange={(date) => setNewTransaction({ ...newTransaction, date: date || new Date() })}
+                    value={formData.date}
+                    onChange={(date) => setFormData({ ...formData, date: date || new Date() })}
                   />
                 </div>
 
@@ -268,8 +302,8 @@ export default function Lancamentos() {
                     type="number"
                     step="0.01"
                     placeholder="0,00"
-                    value={newTransaction.amount}
-                    onChange={(e) => setNewTransaction({ ...newTransaction, amount: e.target.value })}
+                    value={formData.amount}
+                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                   />
                 </div>
 
@@ -277,8 +311,8 @@ export default function Lancamentos() {
                 <div className="grid gap-2">
                   <Label>Categoria *</Label>
                   <Select
-                    value={newTransaction.category}
-                    onValueChange={(v) => setNewTransaction({ ...newTransaction, category: v })}
+                    value={formData.category}
+                    onValueChange={(v) => setFormData({ ...formData, category: v })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione..." />
@@ -295,11 +329,11 @@ export default function Lancamentos() {
                 <div className="grid gap-2">
                   <Label>Forma de pagamento *</Label>
                   <Select
-                    value={newTransaction.payment_method}
-                    onValueChange={(v) => setNewTransaction({ 
-                      ...newTransaction, 
+                    value={formData.payment_method}
+                    onValueChange={(v) => setFormData({ 
+                      ...formData, 
                       payment_method: v,
-                      credit_card_id: ["Crédito", "Débito"].includes(v) ? newTransaction.credit_card_id : ""
+                      credit_card_id: ["Crédito", "Débito"].includes(v) ? formData.credit_card_id : ""
                     })}
                   >
                     <SelectTrigger>
@@ -320,8 +354,8 @@ export default function Lancamentos() {
                   <div className="grid gap-2">
                     <Label>Cartão *</Label>
                     <Select
-                      value={newTransaction.credit_card_id}
-                      onValueChange={(v) => setNewTransaction({ ...newTransaction, credit_card_id: v })}
+                      value={formData.credit_card_id}
+                      onValueChange={(v) => setFormData({ ...formData, credit_card_id: v })}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione o cartão" />
@@ -352,8 +386,8 @@ export default function Lancamentos() {
                 <div className="grid gap-2">
                   <Label>Conta (opcional)</Label>
                   <Select
-                    value={newTransaction.account_id}
-                    onValueChange={(v) => setNewTransaction({ ...newTransaction, account_id: v === "none" ? "" : v })}
+                    value={formData.account_id}
+                    onValueChange={(v) => setFormData({ ...formData, account_id: v === "none" ? "" : v })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione a conta..." />
@@ -375,8 +409,8 @@ export default function Lancamentos() {
                   <Input
                     id="description"
                     placeholder="Ex: Compras do mês"
-                    value={newTransaction.description}
-                    onChange={(e) => setNewTransaction({ ...newTransaction, description: e.target.value })}
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   />
                 </div>
               </div>
@@ -384,9 +418,9 @@ export default function Lancamentos() {
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancelar
                 </Button>
-                <Button onClick={handleSubmit} disabled={isCreating}>
-                  {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Salvar
+                <Button onClick={handleSubmit} disabled={isCreating || isUpdating}>
+                  {(isCreating || isUpdating) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isEditing ? "Atualizar" : "Salvar"}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -540,6 +574,10 @@ export default function Lancamentos() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => openEditDialog(transaction)}>
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Editar
+                              </DropdownMenuItem>
                               <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(transaction.id)}>
                                 <Trash2 className="mr-2 h-4 w-4" />
                                 Excluir
