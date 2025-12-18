@@ -35,6 +35,10 @@ export interface CreateTransactionData {
   account_id?: string | null;
 }
 
+export interface UpdateTransactionData extends Partial<CreateTransactionData> {
+  id: string;
+}
+
 export function useTransactions() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -88,6 +92,35 @@ export function useTransactions() {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async (data: UpdateTransactionData) => {
+      const { id, ...updateData } = data;
+      
+      const { data: result, error } = await supabase
+        .from("transactions")
+        .update({
+          ...updateData,
+          credit_card_id: updateData.credit_card_id || null,
+          account_id: updateData.account_id || null,
+          description: updateData.description || null,
+        })
+        .eq("id", id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions_for_goals"] });
+      toast.success("Lançamento atualizado com sucesso!");
+    },
+    onError: (error: Error) => {
+      toast.error(`Erro ao atualizar lançamento: ${error.message}`);
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
@@ -112,7 +145,9 @@ export function useTransactions() {
     isLoading: query.isLoading,
     error: query.error,
     createTransaction: createMutation.mutateAsync,
+    updateTransaction: updateMutation.mutateAsync,
     deleteTransaction: deleteMutation.mutateAsync,
     isCreating: createMutation.isPending,
+    isUpdating: updateMutation.isPending,
   };
 }
