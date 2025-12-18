@@ -44,6 +44,95 @@ export type Database = {
         }
         Relationships: []
       }
+      bank_accounts: {
+        Row: {
+          available_balance: number | null
+          connection_id: string
+          created_at: string
+          currency: string
+          current_balance: number
+          id: string
+          institution_name: string | null
+          last_refreshed_at: string | null
+          name: string
+          provider_account_id: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          available_balance?: number | null
+          connection_id: string
+          created_at?: string
+          currency?: string
+          current_balance?: number
+          id?: string
+          institution_name?: string | null
+          last_refreshed_at?: string | null
+          name: string
+          provider_account_id: string
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          available_balance?: number | null
+          connection_id?: string
+          created_at?: string
+          currency?: string
+          current_balance?: number
+          id?: string
+          institution_name?: string | null
+          last_refreshed_at?: string | null
+          name?: string
+          provider_account_id?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_accounts_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "bank_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bank_connections: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          last_sync_at: string | null
+          provider: string
+          provider_item_id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          last_sync_at?: string | null
+          provider?: string
+          provider_item_id: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          last_sync_at?: string | null
+          provider?: string
+          provider_item_id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       bills_instances: {
         Row: {
           amount: number
