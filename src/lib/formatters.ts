@@ -34,15 +34,29 @@ export const formatMonthYear = (date: Date | string): string => {
   }).format(d);
 };
 
+// Parse date string to local date (avoiding UTC timezone issues)
+const parseLocalDate = (date: Date | string): Date => {
+  if (date instanceof Date) {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  }
+  // Parse "YYYY-MM-DD" format as local date, not UTC
+  const parts = date.split("-");
+  if (parts.length === 3) {
+    return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+  }
+  // Fallback: parse and extract local date components
+  const d = new Date(date);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+};
+
 // Relative date (ex: "Em 3 dias", "Vencida há 2 dias", "Hoje")
 export const formatRelativeDate = (date: Date | string): { text: string; status: "today" | "upcoming" | "overdue" } => {
-  const d = typeof date === "string" ? new Date(date) : date;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  d.setHours(0, 0, 0, 0);
+  const targetDate = parseLocalDate(date);
+  const today = parseLocalDate(new Date());
 
-  const diffTime = d.getTime() - today.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  // Calculate difference in calendar days
+  const diffTime = targetDate.getTime() - today.getTime();
+  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
   if (diffDays === 0) {
     return { text: "Hoje", status: "today" };
