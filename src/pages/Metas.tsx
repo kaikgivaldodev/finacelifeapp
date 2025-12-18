@@ -1,13 +1,10 @@
+/**
+ * Página de Metas
+ * Gerenciamento de metas financeiras (gastos e economia)
+ */
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -19,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { EmptyState } from "@/components/ui/empty-state";
+import { DatePicker } from "@/components/ui/date-picker";
 import { formatCurrency, formatPercentage, formatMonthYear } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 import { 
@@ -26,10 +24,10 @@ import {
   Target,
   TrendingUp,
   Wallet,
-  Pencil,
   Trash2,
   MoreHorizontal,
-  CheckCircle2
+  CheckCircle2,
+  Loader2
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -40,34 +38,81 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
 import { useState } from "react";
+import { useGoals, CreateGoalData } from "@/hooks/useGoals";
+import { format, startOfMonth } from "date-fns";
+import { z } from "zod";
+import { toast } from "sonner";
 
-interface Goal {
-  id: string;
-  name: string;
-  type: "spending" | "saving";
-  targetAmount: number;
-  currentAmount: number;
-  deadline?: Date;
-  isCompleted: boolean;
-}
-
-// Empty data - users start with nothing
-const goals: Goal[] = [];
+// Schema de validação
+const goalSchema = z.object({
+  name: z.string().min(1, "Nome é obrigatório"),
+  type: z.enum(["monthly_spending", "saving_goal"]),
+  target_amount: z.number().positive("Valor deve ser maior que zero"),
+  reference_month: z.date().optional(),
+});
 
 export default function Metas() {
+  const { goals, isLoading, createGoal, deleteGoal, isCreating } = useGoals();
+  
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newGoal, setNewGoal] = useState({
     name: "",
-    type: "spending",
+    type: "monthly_spending" as "monthly_spending" | "saving_goal",
     targetAmount: "",
-    deadline: "",
+    referenceMonth: startOfMonth(new Date()),
   });
 
   const hasData = goals.length > 0;
-  const spendingGoals = goals.filter(g => g.type === "spending");
-  const savingGoals = goals.filter(g => g.type === "saving");
-  const completedGoals = goals.filter(g => g.isCompleted);
-  const totalSaved = savingGoals.reduce((sum, g) => sum + g.currentAmount, 0);
+  const spendingGoals = goals.filter(g => g.type === "monthly_spending");
+  const savingGoals = goals.filter(g => g.type === "saving_goal");
+  const totalSaved = savingGoals.reduce((sum, g) => sum + g.current_amount, 0);
+  const completedGoals = goals.filter(g => g.current_amount >= g.target_amount);
+
+  const resetForm = () => {
+    setNewGoal({
+      name: "",
+      type: "monthly_spending",
+      targetAmount: "",
+      referenceMonth: startOfMonth(new Date()),
+    });
+  };
+
+  const handleSubmit = async () => {
+    const amount = parseFloat(newGoal.targetAmount);
+    
+    const validation = goalSchema.safeParse({
+      name: newGoal.name,
+      type: newGoal.type,
+      target_amount: isNaN(amount) ? 0 : amount,
+      reference_month: newGoal.referenceMonth,
+    });
+
+    if (!validation.success) {
+      toast.error(validation.error.errors[0].message);
+      return;
+    }
+
+    const data: CreateGoalData = {
+      name: newGoal.name,
+      type: newGoal.type,
+      target_amount: amount,
+      reference_month: format(newGoal.referenceMonth, "yyyy-MM-dd"),
+    };
+
+    try {
+      await createGoal(data);
+      setIsDialogOpen(false);
+      resetForm();
+    } catch (error) {
+      // Error handled by hook
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (confirm("Tem certeza que deseja excluir esta meta?")) {
+      await deleteGoal(id);
+    }
+  };
 
   return (
     <MainLayout>
@@ -82,7 +127,10 @@ export default function Metas() {
               Acompanhe seus objetivos financeiros
             </p>
           </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) resetForm();
+          }}>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
@@ -97,11 +145,12 @@ export default function Metas() {
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
+                {/* Tipo */}
                 <div className="grid grid-cols-2 gap-4">
                   <Button
                     type="button"
-                    variant={newGoal.type === "spending" ? "default" : "outline"}
-                    onClick={() => setNewGoal({ ...newGoal, type: "spending" })}
+                    variant={newGoal.type === "monthly_spending" ? "default" : "outline"}
+                    onClick={() => setNewGoal({ ...newGoal, type: "monthly_spending" })}
                     className="w-full"
                   >
                     <TrendingUp className="mr-2 h-4 w-4" />
@@ -109,47 +158,53 @@ export default function Metas() {
                   </Button>
                   <Button
                     type="button"
-                    variant={newGoal.type === "saving" ? "success" : "outline"}
-                    onClick={() => setNewGoal({ ...newGoal, type: "saving" })}
+                    variant={newGoal.type === "saving_goal" ? "success" : "outline"}
+                    onClick={() => setNewGoal({ ...newGoal, type: "saving_goal" })}
                     className="w-full"
                   >
                     <Target className="mr-2 h-4 w-4" />
                     Economia
                   </Button>
                 </div>
+
+                {/* Nome */}
                 <div className="grid gap-2">
-                  <Label>Nome da meta</Label>
+                  <Label>Nome da meta *</Label>
                   <Input
-                    placeholder="Ex: Reserva de emergência"
+                    placeholder="Ex: Gastar no máximo R$ 2.000"
                     value={newGoal.name}
                     onChange={(e) => setNewGoal({ ...newGoal, name: e.target.value })}
                   />
                 </div>
+
+                {/* Valor alvo */}
                 <div className="grid gap-2">
-                  <Label>Valor alvo (R$)</Label>
+                  <Label>Valor alvo (R$) *</Label>
                   <Input
                     type="number"
+                    step="0.01"
                     placeholder="0,00"
                     value={newGoal.targetAmount}
                     onChange={(e) => setNewGoal({ ...newGoal, targetAmount: e.target.value })}
                   />
                 </div>
-                {newGoal.type === "saving" && (
-                  <div className="grid gap-2">
-                    <Label>Prazo (opcional)</Label>
-                    <Input
-                      type="date"
-                      value={newGoal.deadline}
-                      onChange={(e) => setNewGoal({ ...newGoal, deadline: e.target.value })}
-                    />
-                  </div>
-                )}
+
+                {/* Mês de referência */}
+                <div className="grid gap-2">
+                  <Label>Mês de referência</Label>
+                  <DatePicker
+                    value={newGoal.referenceMonth}
+                    onChange={(date) => setNewGoal({ ...newGoal, referenceMonth: date || new Date() })}
+                    placeholder="Selecione o mês"
+                  />
+                </div>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancelar
                 </Button>
-                <Button onClick={() => setIsDialogOpen(false)}>
+                <Button onClick={handleSubmit} disabled={isCreating}>
+                  {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Criar Meta
                 </Button>
               </DialogFooter>
@@ -157,8 +212,12 @@ export default function Metas() {
           </Dialog>
         </div>
 
-        {/* Empty State */}
-        {!hasData ? (
+        {/* Loading */}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : !hasData ? (
           <EmptyState
             icon={Target}
             title="Nenhuma meta definida"
@@ -179,7 +238,7 @@ export default function Metas() {
                   <div>
                     <p className="text-sm text-muted-foreground">Metas ativas</p>
                     <p className="font-display text-2xl font-bold text-foreground">
-                      {goals.filter(g => !g.isCompleted).length}
+                      {goals.length}
                     </p>
                   </div>
                 </div>
@@ -226,8 +285,8 @@ export default function Metas() {
                 </div>
                 <div className="divide-y divide-border">
                   {spendingGoals.map((goal, index) => {
-                    const progress = Math.min((goal.currentAmount / goal.targetAmount) * 100, 100);
-                    const isOverBudget = goal.currentAmount > goal.targetAmount;
+                    const progress = Math.min((goal.current_amount / goal.target_amount) * 100, 100);
+                    const isOverBudget = goal.current_amount > goal.target_amount;
                     
                     return (
                       <div 
@@ -246,7 +305,7 @@ export default function Metas() {
                               )}
                             </div>
                             <p className="mt-1 text-sm text-muted-foreground">
-                              {formatMonthYear(new Date())}
+                              {goal.reference_month ? formatMonthYear(goal.reference_month) : formatMonthYear(new Date())}
                             </p>
                           </div>
                           <div className="text-right">
@@ -254,10 +313,10 @@ export default function Metas() {
                               "font-semibold",
                               isOverBudget ? "text-destructive" : "text-foreground"
                             )}>
-                              {formatCurrency(goal.currentAmount)}
+                              {formatCurrency(goal.current_amount)}
                             </p>
                             <p className="text-sm text-muted-foreground">
-                              de {formatCurrency(goal.targetAmount)}
+                              de {formatCurrency(goal.target_amount)}
                             </p>
                           </div>
                           <DropdownMenu>
@@ -267,12 +326,7 @@ export default function Metas() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem>
-                                <Pencil className="mr-2 h-4 w-4" />
-                                Editar
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-destructive">
+                              <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(goal.id)}>
                                 <Trash2 className="mr-2 h-4 w-4" />
                                 Excluir
                               </DropdownMenuItem>
@@ -291,8 +345,8 @@ export default function Metas() {
                             <span>{formatPercentage(progress)}</span>
                             <span>
                               {isOverBudget 
-                                ? `Excedido em ${formatCurrency(goal.currentAmount - goal.targetAmount)}`
-                                : `Restam ${formatCurrency(goal.targetAmount - goal.currentAmount)}`
+                                ? `Excedido em ${formatCurrency(goal.current_amount - goal.target_amount)}`
+                                : `Restam ${formatCurrency(goal.target_amount - goal.current_amount)}`
                               }
                             </span>
                           </div>
@@ -318,14 +372,15 @@ export default function Metas() {
                 </div>
                 <div className="grid gap-4 p-4 sm:grid-cols-2">
                   {savingGoals.map((goal, index) => {
-                    const progress = Math.min((goal.currentAmount / goal.targetAmount) * 100, 100);
+                    const progress = Math.min((goal.current_amount / goal.target_amount) * 100, 100);
+                    const isCompleted = goal.current_amount >= goal.target_amount;
                     
                     return (
                       <div 
                         key={goal.id}
                         className={cn(
                           "rounded-lg border border-border bg-background p-4 transition-all duration-200 hover:shadow-md animate-fade-in",
-                          goal.isCompleted && "border-success/30 bg-success/5"
+                          isCompleted && "border-success/30 bg-success/5"
                         )}
                         style={{ animationDelay: `${index * 50}ms` }}
                       >
@@ -333,9 +388,9 @@ export default function Metas() {
                           <div className="flex items-center gap-3">
                             <div className={cn(
                               "flex h-10 w-10 items-center justify-center rounded-lg",
-                              goal.isCompleted ? "bg-success/10" : "bg-primary/10"
+                              isCompleted ? "bg-success/10" : "bg-primary/10"
                             )}>
-                              {goal.isCompleted ? (
+                              {isCompleted ? (
                                 <CheckCircle2 className="h-5 w-5 text-success" />
                               ) : (
                                 <Target className="h-5 w-5 text-primary" />
@@ -343,9 +398,9 @@ export default function Metas() {
                             </div>
                             <div>
                               <p className="font-medium text-foreground">{goal.name}</p>
-                              {goal.deadline && (
+                              {goal.reference_month && (
                                 <p className="text-xs text-muted-foreground">
-                                  Prazo: {formatMonthYear(goal.deadline)}
+                                  Prazo: {formatMonthYear(goal.reference_month)}
                                 </p>
                               )}
                             </div>
@@ -357,16 +412,7 @@ export default function Metas() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem>
-                                <Wallet className="mr-2 h-4 w-4" />
-                                Adicionar valor
-                              </DropdownMenuItem>
-                              <DropdownMenuItem>
-                                <Pencil className="mr-2 h-4 w-4" />
-                                Editar
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-destructive">
+                              <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(goal.id)}>
                                 <Trash2 className="mr-2 h-4 w-4" />
                                 Excluir
                               </DropdownMenuItem>
@@ -377,27 +423,27 @@ export default function Metas() {
                           <div className="flex justify-between">
                             <span className={cn(
                               "text-lg font-semibold",
-                              goal.isCompleted ? "text-success" : "text-foreground"
+                              isCompleted ? "text-success" : "text-foreground"
                             )}>
-                              {formatCurrency(goal.currentAmount)}
+                              {formatCurrency(goal.current_amount)}
                             </span>
                             <span className="text-sm text-muted-foreground">
-                              {formatCurrency(goal.targetAmount)}
+                              {formatCurrency(goal.target_amount)}
                             </span>
                           </div>
                           <Progress 
                             value={progress} 
                             className={cn(
                               "h-2",
-                              goal.isCompleted && "[&>div]:bg-success"
+                              isCompleted && "[&>div]:bg-success"
                             )}
                           />
                           <div className="flex justify-between text-xs text-muted-foreground">
                             <span>{formatPercentage(progress)}</span>
-                            {goal.isCompleted ? (
+                            {isCompleted ? (
                               <span className="text-success">Meta atingida!</span>
                             ) : (
-                              <span>Faltam {formatCurrency(goal.targetAmount - goal.currentAmount)}</span>
+                              <span>Faltam {formatCurrency(goal.target_amount - goal.current_amount)}</span>
                             )}
                           </div>
                         </div>
