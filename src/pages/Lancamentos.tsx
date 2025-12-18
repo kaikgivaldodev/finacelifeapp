@@ -56,6 +56,7 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { useTransactions, CreateTransactionData } from "@/hooks/useTransactions";
 import { useCreditCards } from "@/hooks/useCreditCards";
+import { useAccounts } from "@/hooks/useAccounts";
 import { format } from "date-fns";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -92,6 +93,7 @@ const transactionSchema = z.object({
   category: z.string().min(1, "Categoria é obrigatória"),
   payment_method: z.string().min(1, "Forma de pagamento é obrigatória"),
   credit_card_id: z.string().optional().nullable(),
+  account_id: z.string().optional().nullable(),
   description: z.string().optional(),
 }).refine((data) => {
   // Se forma de pagamento é Crédito ou Débito, cartão é obrigatório
@@ -107,6 +109,7 @@ const transactionSchema = z.object({
 export default function Lancamentos() {
   const { transactions, isLoading, createTransaction, deleteTransaction, isCreating } = useTransactions();
   const { cards } = useCreditCards();
+  const { accounts } = useAccounts();
   
   const [typeFilter, setTypeFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("Todas");
@@ -121,6 +124,7 @@ export default function Lancamentos() {
     description: "",
     payment_method: "",
     credit_card_id: "",
+    account_id: "",
   });
 
   const filteredTransactions = transactions.filter((t) => {
@@ -145,6 +149,7 @@ export default function Lancamentos() {
       description: "",
       payment_method: "",
       credit_card_id: "",
+      account_id: "",
     });
   };
 
@@ -158,6 +163,7 @@ export default function Lancamentos() {
       category: newTransaction.category,
       payment_method: newTransaction.payment_method,
       credit_card_id: newTransaction.credit_card_id || null,
+      account_id: newTransaction.account_id || null,
       description: newTransaction.description,
     });
 
@@ -173,6 +179,7 @@ export default function Lancamentos() {
       category: newTransaction.category,
       payment_method: newTransaction.payment_method,
       credit_card_id: showCardSelect ? newTransaction.credit_card_id : null,
+      account_id: newTransaction.account_id || null,
       description: newTransaction.description || undefined,
     };
 
@@ -340,6 +347,27 @@ export default function Lancamentos() {
                     )}
                   </div>
                 )}
+
+                {/* Conta */}
+                <div className="grid gap-2">
+                  <Label>Conta (opcional)</Label>
+                  <Select
+                    value={newTransaction.account_id}
+                    onValueChange={(v) => setNewTransaction({ ...newTransaction, account_id: v === "none" ? "" : v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a conta..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Nenhuma conta</SelectItem>
+                      {accounts.map((account) => (
+                        <SelectItem key={account.id} value={account.id}>
+                          {account.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
                 {/* Descrição */}
                 <div className="grid gap-2">
