@@ -80,6 +80,7 @@ export function useTransactions() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions_for_goals"] }); // Atualizar metas de gasto
       toast.success("Lançamento criado com sucesso!");
     },
     onError: (error: Error) => {
@@ -98,6 +99,7 @@ export function useTransactions() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions_for_goals"] }); // Atualizar metas de gasto
       toast.success("Lançamento excluído!");
     },
     onError: (error: Error) => {
