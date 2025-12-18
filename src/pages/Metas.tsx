@@ -38,7 +38,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
 import { useState } from "react";
-import { useGoals, CreateGoalData } from "@/hooks/useGoals";
+import { useGoals, CreateGoalData, UpdateGoalData } from "@/hooks/useGoals";
 import { format, startOfMonth } from "date-fns";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -52,9 +52,13 @@ const goalSchema = z.object({
 });
 
 export default function Metas() {
-  const { goals, isLoading, createGoal, deleteGoal, isCreating } = useGoals();
+  const { goals, isLoading, createGoal, updateGoal, deleteGoal, isCreating, isUpdating } = useGoals();
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDepositDialogOpen, setIsDepositDialogOpen] = useState(false);
+  const [selectedGoalForDeposit, setSelectedGoalForDeposit] = useState<{ id: string; name: string; current_amount: number } | null>(null);
+  const [depositAmount, setDepositAmount] = useState("");
+
   const [newGoal, setNewGoal] = useState({
     name: "",
     type: "monthly_spending" as "monthly_spending" | "saving_goal",
@@ -75,6 +79,35 @@ export default function Metas() {
       targetAmount: "",
       referenceMonth: startOfMonth(new Date()),
     });
+  };
+
+  const openDepositDialog = (goal: { id: string; name: string; current_amount: number }) => {
+    setSelectedGoalForDeposit(goal);
+    setDepositAmount("");
+    setIsDepositDialogOpen(true);
+  };
+
+  const handleDeposit = async () => {
+    if (!selectedGoalForDeposit) return;
+    
+    const amount = parseFloat(depositAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("Informe um valor válido");
+      return;
+    }
+
+    try {
+      await updateGoal({
+        id: selectedGoalForDeposit.id,
+        current_amount: selectedGoalForDeposit.current_amount + amount,
+      });
+      toast.success(`Depósito de ${formatCurrency(amount)} realizado!`);
+      setIsDepositDialogOpen(false);
+      setSelectedGoalForDeposit(null);
+      setDepositAmount("");
+    } catch (error) {
+      // Error handled by hook
+    }
   };
 
   const handleSubmit = async () => {
@@ -412,6 +445,13 @@ export default function Metas() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                              {!isCompleted && (
+                                <DropdownMenuItem onClick={() => openDepositDialog({ id: goal.id, name: goal.name, current_amount: goal.current_amount })}>
+                                  <Wallet className="mr-2 h-4 w-4" />
+                                  Depositar
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuSeparator />
                               <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(goal.id)}>
                                 <Trash2 className="mr-2 h-4 w-4" />
                                 Excluir
@@ -455,6 +495,40 @@ export default function Metas() {
             )}
           </>
         )}
+
+        {/* Deposit Dialog */}
+        <Dialog open={isDepositDialogOpen} onOpenChange={setIsDepositDialogOpen}>
+          <DialogContent className="sm:max-w-[350px]">
+            <DialogHeader>
+              <DialogTitle className="font-display">Depositar</DialogTitle>
+              <DialogDescription>
+                Adicione um valor à meta "{selectedGoalForDeposit?.name}"
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label>Valor (R$)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  placeholder="0,00"
+                  value={depositAmount}
+                  onChange={(e) => setDepositAmount(e.target.value)}
+                  autoFocus
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsDepositDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleDeposit} disabled={isUpdating}>
+                {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Depositar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </MainLayout>
   );

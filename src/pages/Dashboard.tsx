@@ -1,9 +1,12 @@
+/**
+ * Dashboard - Visão geral das finanças
+ * Exibe dados reais do usuário autenticado
+ */
 import { MainLayout } from "@/components/layout/MainLayout";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { UpcomingBills } from "@/components/dashboard/UpcomingBills";
 import { FinanceCharts } from "@/components/dashboard/FinanceCharts";
 import { GoalProgress } from "@/components/dashboard/GoalProgress";
-import { EmptyState } from "@/components/ui/empty-state";
 import { formatCurrency, formatMonthYear } from "@/lib/formatters";
 import { 
   Wallet, 
@@ -13,7 +16,8 @@ import {
   Calendar,
   Receipt,
   CreditCard,
-  PlusCircle
+  PlusCircle,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,26 +27,169 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTransactions } from "@/hooks/useTransactions";
+import { useFixedBills } from "@/hooks/useFixedBills";
+import { useGoals } from "@/hooks/useGoals";
+import { 
+  startOfMonth, 
+  endOfMonth, 
+  startOfDay, 
+  endOfDay, 
+  subDays, 
+  subMonths,
+  isWithinInterval,
+  parseISO
+} from "date-fns";
 
-// Empty data - users start with nothing
-const bills: any[] = [];
-const barData: any[] = [];
-const pieData: any[] = [];
-const goals: any[] = [];
+type PeriodFilter = "today" | "yesterday" | "last-7" | "last-30" | "current-month" | "last-month";
 
 export default function Dashboard() {
-  const [period, setPeriod] = useState("current-month");
+  const [period, setPeriod] = useState<PeriodFilter>("current-month");
   const currentMonth = formatMonthYear(new Date());
   const navigate = useNavigate();
 
-  // Calculate totals - will be 0 for new users
-  const totalIncome = 0;
-  const totalExpenses = 0;
+  // Buscar dados reais
+  const { transactions, isLoading: isLoadingTransactions } = useTransactions();
+  const { bills, instances, isLoading: isLoadingBills } = useFixedBills();
+  const { goals, isLoading: isLoadingGoals } = useGoals();
+
+  const isLoading = isLoadingTransactions || isLoadingBills || isLoadingGoals;
+
+  // Calcular intervalo de datas baseado no período selecionado
+  const dateRange = useMemo(() => {
+    const now = new Date();
+    
+    switch (period) {
+      case "today":
+        return { start: startOfDay(now), end: endOfDay(now) };
+      case "yesterday":
+        const yesterday = subDays(now, 1);
+        return { start: startOfDay(yesterday), end: endOfDay(yesterday) };
+      case "last-7":
+        return { start: startOfDay(subDays(now, 6)), end: endOfDay(now) };
+      case "last-30":
+        return { start: startOfDay(subDays(now, 29)), end: endOfDay(now) };
+      case "current-month":
+        return { start: startOfMonth(now), end: endOfMonth(now) };
+      case "last-month":
+        const lastMonth = subMonths(now, 1);
+        return { start: startOfMonth(lastMonth), end: endOfMonth(lastMonth) };
+      default:
+        return { start: startOfMonth(now), end: endOfMonth(now) };
+    }
+  }, [period]);
+
+  // Filtrar transações pelo período
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter(t => {
+      const transactionDate = parseISO(t.date);
+      return isWithinInterval(transactionDate, { start: dateRange.start, end: dateRange.end });
+    });
+  }, [transactions, dateRange]);
+
+  // Calcular totais
+  const totalIncome = filteredTransactions
+    .filter(t => t.type === "income")
+    .reduce((sum, t) => sum + t.amount, 0);
+  
+  const totalExpenses = filteredTransactions
+    .filter(t => t.type === "expense")
+    .reduce((sum, t) => sum + t.amount, 0);
+  
   const balance = totalIncome - totalExpenses;
 
-  const hasData = barData.length > 0 || bills.length > 0;
+  // Custo mensal das contas fixas
+  const fixedBillsCost = bills.reduce((sum, b) => sum + b.amount, 0);
+
+  // Dados para gráfico de barras (receitas vs despesas por categoria)
+  const barData = useMemo(() => {
+    const categoryTotals: Record<string, { receitas: number; despesas: number }> = {};
+    
+    filteredTransactions.forEach(t => {
+      if (!categoryTotals[t.category]) {
+        categoryTotals[t.category] = { receitas: 0, despesas: 0 };
+      }
+      if (t.type === "income") {
+        categoryTotals[t.category].receitas += t.amount;
+      } else {
+        categoryTotals[t.category].despesas += t.amount;
+      }
+    });
+
+    return Object.entries(categoryTotals).map(([name, values]) => ({
+      name,
+      receitas: values.receitas,
+      despesas: values.despesas,
+    }));
+  }, [filteredTransactions]);
+
+  // Cores para o gráfico de pizza
+  const pieColors = [
+    "hsl(40, 95%, 55%)",   // primary/gold
+    "hsl(142, 71%, 45%)",  // success
+    "hsl(0, 72%, 51%)",    // destructive
+    "hsl(217, 91%, 60%)",  // blue
+    "hsl(270, 70%, 60%)",  // purple
+    "hsl(25, 95%, 53%)",   // warning/orange
+    "hsl(180, 60%, 50%)",  // cyan
+    "hsl(330, 70%, 55%)",  // pink
+  ];
+
+  // Dados para gráfico de pizza (despesas por categoria)
+  const pieData = useMemo(() => {
+    const categoryTotals: Record<string, number> = {};
+    
+    filteredTransactions
+      .filter(t => t.type === "expense")
+      .forEach(t => {
+        categoryTotals[t.category] = (categoryTotals[t.category] || 0) + t.amount;
+      });
+
+    return Object.entries(categoryTotals).map(([name, value], index) => ({
+      name,
+      value,
+      color: pieColors[index % pieColors.length],
+    }));
+  }, [filteredTransactions]);
+
+  // Mapear contas fixas para o componente UpcomingBills
+  const upcomingBills = useMemo(() => {
+    return bills.map(bill => ({
+      id: bill.id,
+      name: bill.name,
+      amount: bill.amount,
+      dueDate: bill.currentMonthDueDate,
+      category: bill.category,
+      status: bill.currentMonthStatus as "pending" | "paid" | "overdue",
+    }));
+  }, [bills]);
+
+  // Mapear metas para o componente GoalProgress
+  const mappedGoals = useMemo(() => {
+    return goals.map(goal => ({
+      id: goal.id,
+      name: goal.name,
+      targetAmount: goal.target_amount,
+      currentAmount: goal.current_amount,
+      type: goal.type === "monthly_spending" ? "spending" as const : "saving" as const,
+    }));
+  }, [goals]);
+
+  // Verificar se tem dados
+  const hasData = transactions.length > 0 || bills.length > 0 || goals.length > 0;
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout>
@@ -58,16 +205,18 @@ export default function Dashboard() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <Select value={period} onValueChange={setPeriod}>
+            <Select value={period} onValueChange={(v) => setPeriod(v as PeriodFilter)}>
               <SelectTrigger className="w-[180px]">
                 <Calendar className="mr-2 h-4 w-4" />
                 <SelectValue placeholder="Período" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="today">Hoje</SelectItem>
+                <SelectItem value="yesterday">Ontem</SelectItem>
+                <SelectItem value="last-7">Últimos 7 dias</SelectItem>
+                <SelectItem value="last-30">Últimos 30 dias</SelectItem>
                 <SelectItem value="current-month">Este mês</SelectItem>
                 <SelectItem value="last-month">Mês passado</SelectItem>
-                <SelectItem value="last-30">Últimos 30 dias</SelectItem>
-                <SelectItem value="custom">Personalizado</SelectItem>
               </SelectContent>
             </Select>
             <Button onClick={() => navigate("/lancamentos")}>
@@ -197,7 +346,7 @@ export default function Dashboard() {
             {/* Stats Cards - shown when user has data */}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 stagger-children">
               <StatCard
-                title="Saldo do Mês"
+                title="Saldo do Período"
                 value={formatCurrency(balance)}
                 subtitle={balance >= 0 ? "Você está no azul" : "Você está no vermelho"}
                 icon={Wallet}
@@ -206,31 +355,35 @@ export default function Dashboard() {
               <StatCard
                 title="Receitas"
                 value={formatCurrency(totalIncome)}
+                subtitle={`${filteredTransactions.filter(t => t.type === "income").length} lançamentos`}
                 icon={TrendingUp}
                 variant="success"
               />
               <StatCard
                 title="Despesas"
                 value={formatCurrency(totalExpenses)}
+                subtitle={`${filteredTransactions.filter(t => t.type === "expense").length} lançamentos`}
                 icon={TrendingDown}
                 variant="danger"
               />
               <StatCard
-                title="Meta do Mês"
-                value="--"
-                subtitle="Defina uma meta"
+                title="Contas Fixas"
+                value={formatCurrency(fixedBillsCost)}
+                subtitle={`${bills.length} contas cadastradas`}
                 icon={Target}
-                variant="default"
+                variant="warning"
               />
             </div>
 
             {/* Charts */}
-            <FinanceCharts barData={barData} pieData={pieData} />
+            {(barData.length > 0 || pieData.length > 0) && (
+              <FinanceCharts barData={barData} pieData={pieData} />
+            )}
 
             {/* Bottom Section */}
             <div className="grid gap-6 lg:grid-cols-2">
-              <UpcomingBills bills={bills} />
-              <GoalProgress goals={goals} />
+              <UpcomingBills bills={upcomingBills} />
+              <GoalProgress goals={mappedGoals} />
             </div>
           </>
         )}

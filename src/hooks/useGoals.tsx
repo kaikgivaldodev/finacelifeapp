@@ -26,6 +26,13 @@ export interface CreateGoalData {
   reference_month?: string;
 }
 
+export interface UpdateGoalData {
+  id: string;
+  current_amount?: number;
+  name?: string;
+  target_amount?: number;
+}
+
 export function useGoals() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -75,6 +82,31 @@ export function useGoals() {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async (data: UpdateGoalData) => {
+      const updateData: Record<string, any> = {};
+      if (data.current_amount !== undefined) updateData.current_amount = data.current_amount;
+      if (data.name !== undefined) updateData.name = data.name;
+      if (data.target_amount !== undefined) updateData.target_amount = data.target_amount;
+      
+      const { data: result, error } = await supabase
+        .from("goals")
+        .update(updateData)
+        .eq("id", data.id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["goals"] });
+    },
+    onError: (error: Error) => {
+      toast.error(`Erro ao atualizar meta: ${error.message}`);
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
@@ -98,7 +130,9 @@ export function useGoals() {
     isLoading: query.isLoading,
     error: query.error,
     createGoal: createMutation.mutateAsync,
+    updateGoal: updateMutation.mutateAsync,
     deleteGoal: deleteMutation.mutateAsync,
     isCreating: createMutation.isPending,
+    isUpdating: updateMutation.isPending,
   };
 }
