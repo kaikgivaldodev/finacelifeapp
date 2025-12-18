@@ -1,3 +1,7 @@
+/**
+ * Página de Contas Fixas
+ * Gerenciamento de despesas recorrentes mensais
+ */
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,10 +41,9 @@ import {
   Clock,
   AlertCircle,
   MoreHorizontal,
-  Pencil,
   Trash2,
-  Power,
-  Calendar
+  Calendar,
+  Loader2
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -51,21 +54,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
-
-interface FixedBill {
-  id: string;
-  name: string;
-  description?: string;
-  amount: number;
-  category: string;
-  dueDay: number;
-  isActive: boolean;
-  currentMonthStatus: "pending" | "paid" | "overdue";
-  currentMonthDueDate: Date;
-}
-
-// Empty data - users start with nothing
-const fixedBills: FixedBill[] = [];
+import { useFixedBills, CreateFixedBillData } from "@/hooks/useFixedBills";
+import { z } from "zod";
+import { toast } from "sonner";
 
 const categories = [
   "Moradia",
@@ -90,7 +81,19 @@ const getCategoryIcon = (category: string): string => {
   return icons[category] || "📋";
 };
 
+// Schema de validação
+const fixedBillSchema = z.object({
+  name: z.string().min(1, "Nome é obrigatório"),
+  amount: z.number().positive("Valor deve ser maior que zero"),
+  category: z.string().min(1, "Categoria é obrigatória"),
+  due_day: z.number().min(1).max(31, "Dia deve ser entre 1 e 31"),
+  description: z.string().optional(),
+  auto_generate: z.boolean().optional(),
+});
+
 export default function ContasFixas() {
+  const { bills, isLoading, createBill, markAsPaid, deleteBill, isCreating } = useFixedBills();
+  
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newBill, setNewBill] = useState({
     name: "",
@@ -102,14 +105,14 @@ export default function ContasFixas() {
   });
 
   // Calculate summaries
-  const totalMonthly = fixedBills.filter(b => b.isActive).reduce((sum, b) => sum + b.amount, 0);
-  const pendingCount = fixedBills.filter(b => b.currentMonthStatus === "pending").length;
-  const paidCount = fixedBills.filter(b => b.currentMonthStatus === "paid").length;
-  const overdueCount = fixedBills.filter(b => b.currentMonthStatus === "overdue").length;
+  const totalMonthly = bills.reduce((sum, b) => sum + b.amount, 0);
+  const pendingCount = bills.filter(b => b.currentMonthStatus === "pending").length;
+  const paidCount = bills.filter(b => b.currentMonthStatus === "paid").length;
+  const overdueCount = bills.filter(b => b.currentMonthStatus === "overdue").length;
 
-  const hasData = fixedBills.length > 0;
+  const hasData = bills.length > 0;
 
-  const getStatusBadge = (status: FixedBill["currentMonthStatus"], dueDate: Date) => {
+  const getStatusBadge = (status: string, dueDate: Date) => {
     const relative = formatRelativeDate(dueDate);
     
     if (status === "paid") {
@@ -147,6 +150,64 @@ export default function ContasFixas() {
     );
   };
 
+  const resetForm = () => {
+    setNewBill({
+      name: "",
+      description: "",
+      amount: "",
+      category: "",
+      dueDay: "",
+      autoGenerate: true,
+    });
+  };
+
+  const handleSubmit = async () => {
+    const amount = parseFloat(newBill.amount);
+    const dueDay = parseInt(newBill.dueDay);
+    
+    const validation = fixedBillSchema.safeParse({
+      name: newBill.name,
+      amount: isNaN(amount) ? 0 : amount,
+      category: newBill.category,
+      due_day: isNaN(dueDay) ? 0 : dueDay,
+      description: newBill.description,
+      auto_generate: newBill.autoGenerate,
+    });
+
+    if (!validation.success) {
+      toast.error(validation.error.errors[0].message);
+      return;
+    }
+
+    const data: CreateFixedBillData = {
+      name: newBill.name,
+      amount,
+      category: newBill.category,
+      due_day: dueDay,
+      description: newBill.description || undefined,
+      auto_generate: newBill.autoGenerate,
+    };
+
+    try {
+      await createBill(data);
+      setIsDialogOpen(false);
+      resetForm();
+    } catch (error) {
+      // Error handled by hook
+    }
+  };
+
+  const handleMarkAsPaid = async (instanceId: string | undefined) => {
+    if (!instanceId) return;
+    await markAsPaid(instanceId);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (confirm("Tem certeza que deseja excluir esta conta fixa?")) {
+      await deleteBill(id);
+    }
+  };
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -160,7 +221,10 @@ export default function ContasFixas() {
               Gerencie suas despesas recorrentes mensais
             </p>
           </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) resetForm();
+          }}>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
@@ -175,6 +239,7 @@ export default function ContasFixas() {
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
+                {/* Nome */}
                 <div className="grid gap-2">
                   <Label htmlFor="name">Nome da conta *</Label>
                   <Input
@@ -184,6 +249,8 @@ export default function ContasFixas() {
                     onChange={(e) => setNewBill({ ...newBill, name: e.target.value })}
                   />
                 </div>
+
+                {/* Descrição */}
                 <div className="grid gap-2">
                   <Label htmlFor="description">Descrição (opcional)</Label>
                   <Input
@@ -193,12 +260,15 @@ export default function ContasFixas() {
                     onChange={(e) => setNewBill({ ...newBill, description: e.target.value })}
                   />
                 </div>
+
+                {/* Valor e Dia de vencimento */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
                     <Label htmlFor="amount">Valor (R$) *</Label>
                     <Input
                       id="amount"
                       type="number"
+                      step="0.01"
                       placeholder="0,00"
                       value={newBill.amount}
                       onChange={(e) => setNewBill({ ...newBill, amount: e.target.value })}
@@ -223,6 +293,8 @@ export default function ContasFixas() {
                     </Select>
                   </div>
                 </div>
+
+                {/* Categoria */}
                 <div className="grid gap-2">
                   <Label htmlFor="category">Categoria *</Label>
                   <Select
@@ -241,6 +313,8 @@ export default function ContasFixas() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* Auto-generate toggle */}
                 <div className="flex items-center justify-between rounded-lg border border-border p-3">
                   <div>
                     <Label htmlFor="auto-generate" className="text-sm font-medium">
@@ -261,7 +335,8 @@ export default function ContasFixas() {
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancelar
                 </Button>
-                <Button onClick={() => setIsDialogOpen(false)}>
+                <Button onClick={handleSubmit} disabled={isCreating}>
+                  {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Salvar
                 </Button>
               </DialogFooter>
@@ -269,8 +344,12 @@ export default function ContasFixas() {
           </Dialog>
         </div>
 
-        {/* Empty State */}
-        {!hasData ? (
+        {/* Loading */}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : !hasData ? (
           <EmptyState
             icon={Wallet}
             title="Nenhuma conta fixa cadastrada"
@@ -340,20 +419,17 @@ export default function ContasFixas() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {fixedBills.length === 0 ? (
+                  {bills.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
                         Nenhuma conta fixa cadastrada
                       </TableCell>
                     </TableRow>
                   ) : (
-                    fixedBills.map((bill, index) => (
+                    bills.map((bill, index) => (
                       <TableRow 
                         key={bill.id}
-                        className={cn(
-                          "animate-fade-in",
-                          !bill.isActive && "opacity-50"
-                        )}
+                        className="animate-fade-in"
                         style={{ animationDelay: `${index * 30}ms` }}
                       >
                         <TableCell>
@@ -374,7 +450,7 @@ export default function ContasFixas() {
                           {formatCurrency(bill.amount)}
                         </TableCell>
                         <TableCell className="text-muted-foreground">
-                          {formatDueDay(bill.dueDay)}
+                          {formatDueDay(bill.due_day)}
                         </TableCell>
                         <TableCell>
                           {getStatusBadge(bill.currentMonthStatus, bill.currentMonthDueDate)}
@@ -387,25 +463,22 @@ export default function ContasFixas() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              {bill.currentMonthStatus !== "paid" && (
+                              {bill.currentMonthStatus !== "paid" && bill.instanceId && (
                                 <>
-                                  <DropdownMenuItem className="text-success">
+                                  <DropdownMenuItem 
+                                    className="text-success"
+                                    onClick={() => handleMarkAsPaid(bill.instanceId)}
+                                  >
                                     <CheckCircle2 className="mr-2 h-4 w-4" />
                                     Marcar como paga
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
                                 </>
                               )}
-                              <DropdownMenuItem>
-                                <Pencil className="mr-2 h-4 w-4" />
-                                Editar
-                              </DropdownMenuItem>
-                              <DropdownMenuItem>
-                                <Power className="mr-2 h-4 w-4" />
-                                {bill.isActive ? "Desativar" : "Ativar"}
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-destructive">
+                              <DropdownMenuItem 
+                                className="text-destructive"
+                                onClick={() => handleDelete(bill.id)}
+                              >
                                 <Trash2 className="mr-2 h-4 w-4" />
                                 Excluir
                               </DropdownMenuItem>

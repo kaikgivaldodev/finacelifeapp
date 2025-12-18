@@ -1,3 +1,7 @@
+/**
+ * Página de Lançamentos
+ * Gerenciamento de receitas e despesas com formas de pagamento
+ */
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +31,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { EmptyState } from "@/components/ui/empty-state";
+import { DatePicker } from "@/components/ui/date-picker";
 import { formatCurrency, formatDate } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 import { 
@@ -38,7 +43,8 @@ import {
   MoreHorizontal,
   Pencil,
   Trash2,
-  Receipt
+  Receipt,
+  Loader2
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -48,19 +54,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
-
-interface Transaction {
-  id: string;
-  date: Date;
-  type: "income" | "expense";
-  category: string;
-  description: string;
-  account: string;
-  amount: number;
-}
-
-// Empty data - users start with nothing
-const transactions: Transaction[] = [];
+import { useTransactions, CreateTransactionData } from "@/hooks/useTransactions";
+import { useCreditCards } from "@/hooks/useCreditCards";
+import { format } from "date-fns";
+import { z } from "zod";
+import { toast } from "sonner";
 
 const categories = [
   "Todas",
@@ -73,26 +71,62 @@ const categories = [
   "Saúde",
   "Contas da casa",
   "Assinaturas",
+  "Mercado",
+  "Restaurante",
+  "Outros",
 ];
 
+const paymentMethods = [
+  { value: "Dinheiro", label: "Dinheiro" },
+  { value: "PIX", label: "PIX" },
+  { value: "Débito", label: "Débito" },
+  { value: "Crédito", label: "Crédito" },
+  { value: "Transferência", label: "Transferência" },
+];
+
+// Schema de validação com Zod
+const transactionSchema = z.object({
+  type: z.enum(["income", "expense"]),
+  date: z.date({ required_error: "Data é obrigatória" }),
+  amount: z.number().positive("Valor deve ser maior que zero"),
+  category: z.string().min(1, "Categoria é obrigatória"),
+  payment_method: z.string().min(1, "Forma de pagamento é obrigatória"),
+  credit_card_id: z.string().optional().nullable(),
+  description: z.string().optional(),
+}).refine((data) => {
+  // Se forma de pagamento é Crédito ou Débito, cartão é obrigatório
+  if (["Crédito", "Débito"].includes(data.payment_method)) {
+    return !!data.credit_card_id;
+  }
+  return true;
+}, {
+  message: "Selecione um cartão para pagamentos com Crédito ou Débito",
+  path: ["credit_card_id"],
+});
+
 export default function Lancamentos() {
+  const { transactions, isLoading, createTransaction, deleteTransaction, isCreating } = useTransactions();
+  const { cards } = useCreditCards();
+  
   const [typeFilter, setTypeFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("Todas");
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  
   const [newTransaction, setNewTransaction] = useState({
-    type: "expense",
-    date: "",
-    account: "",
+    type: "expense" as "income" | "expense",
+    date: new Date(),
     amount: "",
     category: "",
     description: "",
+    payment_method: "",
+    credit_card_id: "",
   });
 
   const filteredTransactions = transactions.filter((t) => {
     if (typeFilter !== "all" && t.type !== typeFilter) return false;
     if (categoryFilter !== "Todas" && t.category !== categoryFilter) return false;
-    if (searchTerm && !t.description.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+    if (searchTerm && !t.description?.toLowerCase().includes(searchTerm.toLowerCase())) return false;
     return true;
   });
 
@@ -100,6 +134,62 @@ export default function Lancamentos() {
   const totalExpenses = filteredTransactions.filter(t => t.type === "expense").reduce((sum, t) => sum + t.amount, 0);
 
   const hasData = transactions.length > 0;
+  const showCardSelect = ["Crédito", "Débito"].includes(newTransaction.payment_method);
+
+  const resetForm = () => {
+    setNewTransaction({
+      type: "expense",
+      date: new Date(),
+      amount: "",
+      category: "",
+      description: "",
+      payment_method: "",
+      credit_card_id: "",
+    });
+  };
+
+  const handleSubmit = async () => {
+    const amount = parseFloat(newTransaction.amount);
+    
+    const validation = transactionSchema.safeParse({
+      type: newTransaction.type,
+      date: newTransaction.date,
+      amount: isNaN(amount) ? 0 : amount,
+      category: newTransaction.category,
+      payment_method: newTransaction.payment_method,
+      credit_card_id: newTransaction.credit_card_id || null,
+      description: newTransaction.description,
+    });
+
+    if (!validation.success) {
+      toast.error(validation.error.errors[0].message);
+      return;
+    }
+
+    const data: CreateTransactionData = {
+      type: newTransaction.type,
+      date: format(newTransaction.date, "yyyy-MM-dd"),
+      amount,
+      category: newTransaction.category,
+      payment_method: newTransaction.payment_method,
+      credit_card_id: showCardSelect ? newTransaction.credit_card_id : null,
+      description: newTransaction.description || undefined,
+    };
+
+    try {
+      await createTransaction(data);
+      setIsDialogOpen(false);
+      resetForm();
+    } catch (error) {
+      // Error handled by hook
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (confirm("Tem certeza que deseja excluir este lançamento?")) {
+      await deleteTransaction(id);
+    }
+  };
 
   return (
     <MainLayout>
@@ -114,7 +204,10 @@ export default function Lancamentos() {
               Gerencie suas receitas e despesas
             </p>
           </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) resetForm();
+          }}>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
@@ -129,6 +222,7 @@ export default function Lancamentos() {
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
+                {/* Tipo */}
                 <div className="grid grid-cols-2 gap-4">
                   <Button
                     type="button"
@@ -149,27 +243,32 @@ export default function Lancamentos() {
                     Despesa
                   </Button>
                 </div>
+
+                {/* Data - DatePicker padrão */}
                 <div className="grid gap-2">
-                  <Label htmlFor="date">Data</Label>
-                  <Input
-                    id="date"
-                    type="date"
+                  <Label>Data *</Label>
+                  <DatePicker
                     value={newTransaction.date}
-                    onChange={(e) => setNewTransaction({ ...newTransaction, date: e.target.value })}
+                    onChange={(date) => setNewTransaction({ ...newTransaction, date: date || new Date() })}
                   />
                 </div>
+
+                {/* Valor */}
                 <div className="grid gap-2">
-                  <Label htmlFor="amount">Valor (R$)</Label>
+                  <Label htmlFor="amount">Valor (R$) *</Label>
                   <Input
                     id="amount"
                     type="number"
+                    step="0.01"
                     placeholder="0,00"
                     value={newTransaction.amount}
                     onChange={(e) => setNewTransaction({ ...newTransaction, amount: e.target.value })}
                   />
                 </div>
+
+                {/* Categoria */}
                 <div className="grid gap-2">
-                  <Label htmlFor="category">Categoria</Label>
+                  <Label>Categoria *</Label>
                   <Select
                     value={newTransaction.category}
                     onValueChange={(v) => setNewTransaction({ ...newTransaction, category: v })}
@@ -184,15 +283,65 @@ export default function Lancamentos() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* Forma de Pagamento */}
                 <div className="grid gap-2">
-                  <Label htmlFor="account">Conta</Label>
-                  <Input
-                    id="account"
-                    placeholder="Ex: Nubank, Carteira..."
-                    value={newTransaction.account}
-                    onChange={(e) => setNewTransaction({ ...newTransaction, account: e.target.value })}
-                  />
+                  <Label>Forma de pagamento *</Label>
+                  <Select
+                    value={newTransaction.payment_method}
+                    onValueChange={(v) => setNewTransaction({ 
+                      ...newTransaction, 
+                      payment_method: v,
+                      credit_card_id: ["Crédito", "Débito"].includes(v) ? newTransaction.credit_card_id : ""
+                    })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {paymentMethods.map((method) => (
+                        <SelectItem key={method.value} value={method.value}>
+                          {method.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
+
+                {/* Cartão - aparece só se Crédito ou Débito */}
+                {showCardSelect && (
+                  <div className="grid gap-2">
+                    <Label>Cartão *</Label>
+                    <Select
+                      value={newTransaction.credit_card_id}
+                      onValueChange={(v) => setNewTransaction({ ...newTransaction, credit_card_id: v })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o cartão" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {cards.length === 0 ? (
+                          <SelectItem value="" disabled>
+                            Nenhum cartão cadastrado
+                          </SelectItem>
+                        ) : (
+                          cards.map((card) => (
+                            <SelectItem key={card.id} value={card.id}>
+                              {card.name} {card.last_digits && `•••• ${card.last_digits}`}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                    {cards.length === 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Cadastre um cartão em "Cartões de Crédito" primeiro
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Descrição */}
                 <div className="grid gap-2">
                   <Label htmlFor="description">Descrição (opcional)</Label>
                   <Input
@@ -207,7 +356,8 @@ export default function Lancamentos() {
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancelar
                 </Button>
-                <Button onClick={() => setIsDialogOpen(false)}>
+                <Button onClick={handleSubmit} disabled={isCreating}>
+                  {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Salvar
                 </Button>
               </DialogFooter>
@@ -215,8 +365,12 @@ export default function Lancamentos() {
           </Dialog>
         </div>
 
-        {/* Empty State */}
-        {!hasData ? (
+        {/* Loading */}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : !hasData ? (
           <EmptyState
             icon={Receipt}
             title="Nenhum lançamento cadastrado"
@@ -297,7 +451,7 @@ export default function Lancamentos() {
                     <TableHead>Tipo</TableHead>
                     <TableHead>Categoria</TableHead>
                     <TableHead>Descrição</TableHead>
-                    <TableHead>Conta</TableHead>
+                    <TableHead>Pagamento</TableHead>
                     <TableHead className="text-right">Valor</TableHead>
                     <TableHead className="w-[50px]"></TableHead>
                   </TableRow>
@@ -339,9 +493,11 @@ export default function Lancamentos() {
                         </TableCell>
                         <TableCell>{transaction.category}</TableCell>
                         <TableCell className="text-muted-foreground">
-                          {transaction.description}
+                          {transaction.description || "-"}
                         </TableCell>
-                        <TableCell>{transaction.account}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {transaction.payment_method}
+                        </TableCell>
                         <TableCell className={cn(
                           "text-right font-semibold",
                           transaction.type === "income" ? "text-success" : "text-destructive"
@@ -356,11 +512,7 @@ export default function Lancamentos() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem>
-                                <Pencil className="mr-2 h-4 w-4" />
-                                Editar
-                              </DropdownMenuItem>
-                              <DropdownMenuItem className="text-destructive">
+                              <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(transaction.id)}>
                                 <Trash2 className="mr-2 h-4 w-4" />
                                 Excluir
                               </DropdownMenuItem>
