@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 import { 
   Calendar,
   BarChart3,
@@ -23,8 +24,11 @@ import {
   PieChart as PieChartIcon,
   ArrowUpRight,
   ArrowDownRight,
-  Loader2
+  Loader2,
+  Download,
+  FileText,
 } from "lucide-react";
+import { toast } from "sonner";
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTransactions } from "@/hooks/useTransactions";
@@ -283,6 +287,163 @@ export default function Relatorios() {
 
   const hasData = filteredTransactions.length > 0;
 
+  // Exportar CSV
+  const exportToCSV = () => {
+    const headers = ["Data", "Tipo", "Categoria", "Descrição", "Valor", "Forma de Pagamento"];
+    const rows = filteredTransactions.map(t => [
+      format(parseISO(t.date), "dd/MM/yyyy"),
+      t.type === "income" ? "Receita" : "Despesa",
+      t.category,
+      t.description || "",
+      t.amount.toFixed(2).replace(".", ","),
+      t.payment_method,
+    ]);
+
+    const csvContent = [
+      headers.join(";"),
+      ...rows.map(row => row.join(";")),
+    ].join("\n");
+
+    const blob = new Blob(["\ufeff" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `relatorio_${format(dateRange.start, "dd-MM-yyyy")}_a_${format(dateRange.end, "dd-MM-yyyy")}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("CSV exportado com sucesso!");
+  };
+
+  // Exportar PDF
+  const exportToPDF = () => {
+    const periodLabel = (() => {
+      switch (period) {
+        case "7": return "Últimos 7 dias";
+        case "14": return "Últimos 14 dias";
+        case "30": return "Últimos 30 dias";
+        case "90": return "Últimos 3 meses";
+        case "180": return "Últimos 6 meses";
+        case "365": return "Último ano";
+        default: return "Período";
+      }
+    })();
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Relatório Financeiro</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 40px; color: #333; }
+    h1 { color: #1a1a1a; border-bottom: 2px solid #FFC700; padding-bottom: 10px; }
+    h2 { color: #444; margin-top: 30px; }
+    .summary { display: flex; gap: 20px; margin: 20px 0; }
+    .summary-card { flex: 1; padding: 15px; border-radius: 8px; background: #f5f5f5; }
+    .summary-card h3 { margin: 0 0 5px 0; font-size: 14px; color: #666; }
+    .summary-card .value { font-size: 24px; font-weight: bold; }
+    .income { color: #22c55e; }
+    .expense { color: #ef4444; }
+    .balance { color: ${totals.balance >= 0 ? "#22c55e" : "#ef4444"}; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+    th { background: #f5f5f5; font-weight: 600; }
+    .text-right { text-align: right; }
+    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 12px; color: #666; }
+  </style>
+</head>
+<body>
+  <h1>Relatório Financeiro</h1>
+  <p><strong>Período:</strong> ${periodLabel} (${format(dateRange.start, "dd/MM/yyyy")} a ${format(dateRange.end, "dd/MM/yyyy")})</p>
+  
+  <div class="summary">
+    <div class="summary-card">
+      <h3>Receitas</h3>
+      <div class="value income">${formatCurrency(totals.income)}</div>
+    </div>
+    <div class="summary-card">
+      <h3>Despesas</h3>
+      <div class="value expense">${formatCurrency(totals.expenses)}</div>
+    </div>
+    <div class="summary-card">
+      <h3>Saldo</h3>
+      <div class="value balance">${formatCurrency(totals.balance)}</div>
+    </div>
+  </div>
+
+  <h2>Despesas por Categoria</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Categoria</th>
+        <th class="text-right">Valor</th>
+        <th class="text-right">%</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${categoryData.map(cat => `
+        <tr>
+          <td>${cat.name}</td>
+          <td class="text-right">${formatCurrency(cat.value)}</td>
+          <td class="text-right">${cat.percentage.toFixed(1)}%</td>
+        </tr>
+      `).join("")}
+      <tr style="font-weight: bold; background: #f5f5f5;">
+        <td>Total</td>
+        <td class="text-right">${formatCurrency(totals.expenses)}</td>
+        <td class="text-right">100%</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Lançamentos Detalhados</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Data</th>
+        <th>Tipo</th>
+        <th>Categoria</th>
+        <th>Descrição</th>
+        <th class="text-right">Valor</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${filteredTransactions.slice(0, 50).map(t => `
+        <tr>
+          <td>${format(parseISO(t.date), "dd/MM/yyyy")}</td>
+          <td>${t.type === "income" ? "Receita" : "Despesa"}</td>
+          <td>${t.category}</td>
+          <td>${t.description || "-"}</td>
+          <td class="text-right ${t.type === "income" ? "income" : "expense"}">${formatCurrency(t.amount)}</td>
+        </tr>
+      `).join("")}
+    </tbody>
+  </table>
+  ${filteredTransactions.length > 50 ? `<p><em>Mostrando 50 de ${filteredTransactions.length} lançamentos</em></p>` : ""}
+
+  <div class="footer">
+    Relatório gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")}
+  </div>
+</body>
+</html>
+    `;
+
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+      }, 250);
+      toast.success("PDF pronto para impressão!");
+    } else {
+      toast.error("Não foi possível abrir a janela de impressão");
+    }
+  };
+
   if (isLoading) {
     return (
       <MainLayout>
@@ -306,20 +467,34 @@ export default function Relatorios() {
               Análise detalhada das suas finanças
             </p>
           </div>
-          <Select value={period} onValueChange={(v) => setPeriod(v as PeriodFilter)}>
-            <SelectTrigger className="w-[180px]">
-              <Calendar className="mr-2 h-4 w-4" />
-              <SelectValue placeholder="Período" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="7">Últimos 7 dias</SelectItem>
-              <SelectItem value="14">Últimos 14 dias</SelectItem>
-              <SelectItem value="30">Últimos 30 dias</SelectItem>
-              <SelectItem value="90">Últimos 3 meses</SelectItem>
-              <SelectItem value="180">Últimos 6 meses</SelectItem>
-              <SelectItem value="365">Último ano</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex flex-wrap items-center gap-2">
+            {hasData && (
+              <>
+                <Button variant="outline" size="sm" onClick={exportToCSV}>
+                  <Download className="mr-2 h-4 w-4" />
+                  CSV
+                </Button>
+                <Button variant="outline" size="sm" onClick={exportToPDF}>
+                  <FileText className="mr-2 h-4 w-4" />
+                  PDF
+                </Button>
+              </>
+            )}
+            <Select value={period} onValueChange={(v) => setPeriod(v as PeriodFilter)}>
+              <SelectTrigger className="w-[180px]">
+                <Calendar className="mr-2 h-4 w-4" />
+                <SelectValue placeholder="Período" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7">Últimos 7 dias</SelectItem>
+                <SelectItem value="14">Últimos 14 dias</SelectItem>
+                <SelectItem value="30">Últimos 30 dias</SelectItem>
+                <SelectItem value="90">Últimos 3 meses</SelectItem>
+                <SelectItem value="180">Últimos 6 meses</SelectItem>
+                <SelectItem value="365">Último ano</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* Empty State */}
