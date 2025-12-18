@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAccounts, Account } from "@/hooks/useAccounts";
-import { Plus, Pencil, Trash2, Landmark, Wallet, PiggyBank, TrendingUp } from "lucide-react";
+import { Plus, Pencil, Trash2, Landmark, Wallet, PiggyBank, TrendingUp, Search } from "lucide-react";
 import { formatCurrency } from "@/lib/formatters";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
@@ -23,12 +23,17 @@ export default function Contas() {
   const { accounts, isLoading, createAccount, updateAccount, deleteAccount, isCreating, isUpdating } = useAccounts();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
   
   const [formData, setFormData] = useState({
     name: "",
     type: "checking",
     initial_balance: "",
   });
+
+  const filteredAccounts = accounts.filter(account =>
+    account.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const resetForm = () => {
     setFormData({ name: "", type: "checking", initial_balance: "" });
@@ -175,10 +180,23 @@ export default function Contas() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Suas Contas</CardTitle>
-            <CardDescription>
-              {accounts.length} conta(s) cadastrada(s)
-            </CardDescription>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <CardTitle>Suas Contas</CardTitle>
+                <CardDescription>
+                  {filteredAccounts.length} de {accounts.length} conta(s)
+                </CardDescription>
+              </div>
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por nome..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -191,6 +209,12 @@ export default function Contas() {
                 <p>Nenhuma conta cadastrada</p>
                 <p className="text-sm">Clique em "Nova Conta" para adicionar</p>
               </div>
+            ) : filteredAccounts.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Search className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>Nenhuma conta encontrada</p>
+                <p className="text-sm">Tente buscar por outro nome</p>
+              </div>
             ) : (
               <Table>
                 <TableHeader>
@@ -202,7 +226,7 @@ export default function Contas() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {accounts.map((account) => (
+                  {filteredAccounts.map((account) => (
                     <TableRow key={account.id}>
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-2">
