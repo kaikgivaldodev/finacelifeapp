@@ -8,6 +8,7 @@ import Dashboard from "./pages/Dashboard";
 import Lancamentos from "./pages/Lancamentos";
 import ContasFixas from "./pages/ContasFixas";
 import Cartoes from "./pages/Cartoes";
+import Contas from "./pages/Contas";
 import Metas from "./pages/Metas";
 import Relatorios from "./pages/Relatorios";
 import Configuracoes from "./pages/Configuracoes";
@@ -58,6 +59,7 @@ function AppRoutes() {
       <Route path="/auth" element={<AuthRoute><Auth /></AuthRoute>} />
       <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/lancamentos" element={<ProtectedRoute><Lancamentos /></ProtectedRoute>} />
+      <Route path="/contas" element={<ProtectedRoute><Contas /></ProtectedRoute>} />
       <Route path="/contas-fixas" element={<ProtectedRoute><ContasFixas /></ProtectedRoute>} />
       <Route path="/cartoes" element={<ProtectedRoute><Cartoes /></ProtectedRoute>} />
       <Route path="/metas" element={<ProtectedRoute><Metas /></ProtectedRoute>} />

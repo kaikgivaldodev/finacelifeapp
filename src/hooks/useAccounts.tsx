@@ -23,6 +23,10 @@ export interface CreateAccountData {
   initial_balance?: number;
 }
 
+export interface UpdateAccountData extends CreateAccountData {
+  id: string;
+}
+
 export function useAccounts() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -70,6 +74,28 @@ export function useAccounts() {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async (data: UpdateAccountData) => {
+      const { id, ...updateData } = data;
+      const { data: result, error } = await supabase
+        .from("accounts")
+        .update(updateData)
+        .eq("id", id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      toast.success("Conta atualizada com sucesso!");
+    },
+    onError: (error: Error) => {
+      toast.error(`Erro ao atualizar: ${error.message}`);
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
@@ -93,7 +119,9 @@ export function useAccounts() {
     isLoading: query.isLoading,
     error: query.error,
     createAccount: createMutation.mutateAsync,
+    updateAccount: updateMutation.mutateAsync,
     deleteAccount: deleteMutation.mutateAsync,
     isCreating: createMutation.isPending,
+    isUpdating: updateMutation.isPending,
   };
 }
