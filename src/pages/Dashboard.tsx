@@ -3,6 +3,7 @@ import { StatCard } from "@/components/dashboard/StatCard";
 import { UpcomingBills } from "@/components/dashboard/UpcomingBills";
 import { FinanceCharts } from "@/components/dashboard/FinanceCharts";
 import { GoalProgress } from "@/components/dashboard/GoalProgress";
+import { EmptyState } from "@/components/ui/empty-state";
 import { formatCurrency, formatMonthYear } from "@/lib/formatters";
 import { 
   Wallet, 
@@ -10,7 +11,9 @@ import {
   TrendingDown, 
   Target,
   Calendar,
-  AlertTriangle
+  Receipt,
+  CreditCard,
+  PlusCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,46 +24,25 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
-// Mock data - will be replaced with real data from database
-const mockBills = [
-  { id: "1", name: "Aluguel", amount: 1500, dueDate: new Date(2024, 11, 10), category: "Moradia", status: "pending" as const },
-  { id: "2", name: "Conta de Luz", amount: 180, dueDate: new Date(2024, 11, 15), category: "Contas da casa", status: "pending" as const },
-  { id: "3", name: "Internet", amount: 120, dueDate: new Date(2024, 11, 20), category: "Contas da casa", status: "pending" as const },
-  { id: "4", name: "Netflix", amount: 55.90, dueDate: new Date(2024, 11, 5), category: "Assinaturas", status: "overdue" as const },
-  { id: "5", name: "Academia", amount: 89, dueDate: new Date(2024, 11, 25), category: "Saúde", status: "pending" as const },
-];
-
-const mockBarData = [
-  { name: "Sem 1", receitas: 2500, despesas: 1800 },
-  { name: "Sem 2", receitas: 1200, despesas: 2100 },
-  { name: "Sem 3", receitas: 3800, despesas: 2400 },
-  { name: "Sem 4", receitas: 1500, despesas: 1900 },
-];
-
-const mockPieData = [
-  { name: "Moradia", value: 1800, color: "hsl(var(--chart-1))" },
-  { name: "Alimentação", value: 1200, color: "hsl(var(--chart-2))" },
-  { name: "Transporte", value: 600, color: "hsl(var(--chart-3))" },
-  { name: "Lazer", value: 400, color: "hsl(var(--chart-4))" },
-  { name: "Outros", value: 300, color: "hsl(var(--chart-5))" },
-];
-
-const mockGoals = [
-  { id: "1", name: "Limite mensal", targetAmount: 5000, currentAmount: 4300, type: "spending" as const },
-  { id: "2", name: "Reserva de emergência", targetAmount: 10000, currentAmount: 6500, type: "saving" as const },
-];
+// Empty data - users start with nothing
+const bills: any[] = [];
+const barData: any[] = [];
+const pieData: any[] = [];
+const goals: any[] = [];
 
 export default function Dashboard() {
   const [period, setPeriod] = useState("current-month");
   const currentMonth = formatMonthYear(new Date());
+  const navigate = useNavigate();
 
-  // Calculate totals from mock data
-  const totalIncome = 9000;
-  const totalExpenses = 8200;
+  // Calculate totals - will be 0 for new users
+  const totalIncome = 0;
+  const totalExpenses = 0;
   const balance = totalIncome - totalExpenses;
-  const pendingBills = mockBills.filter(b => b.status === "pending" || b.status === "overdue").length;
-  const overdueBills = mockBills.filter(b => b.status === "overdue").length;
+
+  const hasData = barData.length > 0 || bills.length > 0;
 
   return (
     <MainLayout>
@@ -88,74 +70,170 @@ export default function Dashboard() {
                 <SelectItem value="custom">Personalizado</SelectItem>
               </SelectContent>
             </Select>
-            <Button>
+            <Button onClick={() => navigate("/lancamentos")}>
               + Novo Lançamento
             </Button>
           </div>
         </div>
 
-        {/* Alert for overdue bills */}
-        {overdueBills > 0 && (
-          <div className="flex items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-4 animate-fade-in">
-            <AlertTriangle className="h-5 w-5 text-destructive" />
-            <div className="flex-1">
-              <p className="font-medium text-destructive">
-                Você tem {overdueBills} conta{overdueBills > 1 ? "s" : ""} vencida{overdueBills > 1 ? "s" : ""}
+        {/* Empty State for New Users */}
+        {!hasData ? (
+          <div className="space-y-6">
+            {/* Welcome Card */}
+            <div className="rounded-xl border border-primary/20 bg-gradient-card p-8 text-center">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-gold shadow-glow">
+                <Wallet className="h-8 w-8 text-primary-foreground" />
+              </div>
+              <h2 className="font-display text-2xl font-bold text-foreground mb-2">
+                Bem-vindo ao Vida Financeira!
+              </h2>
+              <p className="text-muted-foreground max-w-md mx-auto mb-6">
+                Comece a organizar suas finanças pessoais. Cadastre suas contas fixas, 
+                receitas e despesas para ter controle total do seu dinheiro.
               </p>
-              <p className="text-sm text-destructive/80">
-                Regularize para evitar juros e multas
-              </p>
+              <div className="flex flex-wrap justify-center gap-3">
+                <Button onClick={() => navigate("/contas-fixas")}>
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Cadastrar conta fixa
+                </Button>
+                <Button variant="outline" onClick={() => navigate("/lancamentos")}>
+                  <Receipt className="mr-2 h-4 w-4" />
+                  Adicionar lançamento
+                </Button>
+              </div>
             </div>
-            <Button variant="danger" size="sm">
-              Ver contas
-            </Button>
+
+            {/* Quick Actions Grid */}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div 
+                className="group cursor-pointer rounded-xl border border-border bg-card p-6 transition-all duration-200 hover:border-primary/50 hover:shadow-md"
+                onClick={() => navigate("/contas-fixas")}
+              >
+                <div className="flex items-center gap-4 mb-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                    <Wallet className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-foreground">Contas Fixas</h3>
+                    <p className="text-sm text-muted-foreground">Água, luz, aluguel...</p>
+                  </div>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Cadastre suas despesas recorrentes e nunca mais esqueça um vencimento.
+                </p>
+              </div>
+
+              <div 
+                className="group cursor-pointer rounded-xl border border-border bg-card p-6 transition-all duration-200 hover:border-success/50 hover:shadow-md"
+                onClick={() => navigate("/lancamentos")}
+              >
+                <div className="flex items-center gap-4 mb-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-success/10 group-hover:bg-success/20 transition-colors">
+                    <TrendingUp className="h-6 w-6 text-success" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-foreground">Lançamentos</h3>
+                    <p className="text-sm text-muted-foreground">Receitas e despesas</p>
+                  </div>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Registre suas entradas e saídas para acompanhar seu saldo.
+                </p>
+              </div>
+
+              <div 
+                className="group cursor-pointer rounded-xl border border-border bg-card p-6 transition-all duration-200 hover:border-warning/50 hover:shadow-md"
+                onClick={() => navigate("/cartoes")}
+              >
+                <div className="flex items-center gap-4 mb-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-warning/10 group-hover:bg-warning/20 transition-colors">
+                    <CreditCard className="h-6 w-6 text-warning" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-foreground">Cartões</h3>
+                    <p className="text-sm text-muted-foreground">Crédito e débito</p>
+                  </div>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Gerencie seus cartões e acompanhe suas faturas.
+                </p>
+              </div>
+            </div>
+
+            {/* Empty Stats */}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <StatCard
+                title="Saldo do Mês"
+                value={formatCurrency(0)}
+                subtitle="Nenhum lançamento"
+                icon={Wallet}
+                variant="default"
+              />
+              <StatCard
+                title="Receitas"
+                value={formatCurrency(0)}
+                subtitle="Nenhuma receita"
+                icon={TrendingUp}
+                variant="default"
+              />
+              <StatCard
+                title="Despesas"
+                value={formatCurrency(0)}
+                subtitle="Nenhuma despesa"
+                icon={TrendingDown}
+                variant="default"
+              />
+              <StatCard
+                title="Meta do Mês"
+                value="--"
+                subtitle="Nenhuma meta definida"
+                icon={Target}
+                variant="default"
+              />
+            </div>
           </div>
+        ) : (
+          <>
+            {/* Stats Cards - shown when user has data */}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 stagger-children">
+              <StatCard
+                title="Saldo do Mês"
+                value={formatCurrency(balance)}
+                subtitle={balance >= 0 ? "Você está no azul" : "Você está no vermelho"}
+                icon={Wallet}
+                variant={balance >= 0 ? "gold" : "danger"}
+              />
+              <StatCard
+                title="Receitas"
+                value={formatCurrency(totalIncome)}
+                icon={TrendingUp}
+                variant="success"
+              />
+              <StatCard
+                title="Despesas"
+                value={formatCurrency(totalExpenses)}
+                icon={TrendingDown}
+                variant="danger"
+              />
+              <StatCard
+                title="Meta do Mês"
+                value="--"
+                subtitle="Defina uma meta"
+                icon={Target}
+                variant="default"
+              />
+            </div>
+
+            {/* Charts */}
+            <FinanceCharts barData={barData} pieData={pieData} />
+
+            {/* Bottom Section */}
+            <div className="grid gap-6 lg:grid-cols-2">
+              <UpcomingBills bills={bills} />
+              <GoalProgress goals={goals} />
+            </div>
+          </>
         )}
-
-        {/* Stats Cards */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 stagger-children">
-          <StatCard
-            title="Saldo do Mês"
-            value={formatCurrency(balance)}
-            subtitle={balance >= 0 ? "Você está no azul" : "Você está no vermelho"}
-            icon={Wallet}
-            variant={balance >= 0 ? "gold" : "danger"}
-            trend={{ value: 12, isPositive: balance >= 0 }}
-          />
-          <StatCard
-            title="Receitas"
-            value={formatCurrency(totalIncome)}
-            subtitle={`${mockBarData.length} lançamentos`}
-            icon={TrendingUp}
-            variant="success"
-          />
-          <StatCard
-            title="Despesas"
-            value={formatCurrency(totalExpenses)}
-            subtitle={`Incluindo ${pendingBills} contas fixas`}
-            icon={TrendingDown}
-            variant="danger"
-          />
-          <StatCard
-            title="Meta do Mês"
-            value="86%"
-            subtitle={`${formatCurrency(4300)} de ${formatCurrency(5000)}`}
-            icon={Target}
-            variant="warning"
-          />
-        </div>
-
-        {/* Charts */}
-        <FinanceCharts barData={mockBarData} pieData={mockPieData} />
-
-        {/* Bottom Section */}
-        <div className="grid gap-6 lg:grid-cols-2">
-          <UpcomingBills 
-            bills={mockBills} 
-            onPayBill={(id) => console.log("Pagar conta:", id)} 
-          />
-          <GoalProgress goals={mockGoals} />
-        </div>
       </div>
     </MainLayout>
   );
