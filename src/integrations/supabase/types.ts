@@ -183,9 +183,127 @@ export type Database = {
           },
         ]
       }
+      credit_card_statements: {
+        Row: {
+          closing_date: string | null
+          created_at: string
+          credit_card_id: string
+          due_date: string | null
+          id: string
+          reference_month: string
+          status: string
+          total_amount: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          closing_date?: string | null
+          created_at?: string
+          credit_card_id: string
+          due_date?: string | null
+          id?: string
+          reference_month: string
+          status?: string
+          total_amount?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          closing_date?: string | null
+          created_at?: string
+          credit_card_id?: string
+          due_date?: string | null
+          id?: string
+          reference_month?: string
+          status?: string
+          total_amount?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_card_statements_credit_card_id_fkey"
+            columns: ["credit_card_id"]
+            isOneToOne: false
+            referencedRelation: "credit_cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      credit_card_transactions: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string
+          credit_card_id: string
+          date: string
+          description: string
+          external_id: string | null
+          fingerprint: string
+          id: string
+          import_id: string | null
+          statement_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          category?: string
+          created_at?: string
+          credit_card_id: string
+          date: string
+          description: string
+          external_id?: string | null
+          fingerprint: string
+          id?: string
+          import_id?: string | null
+          statement_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string
+          credit_card_id?: string
+          date?: string
+          description?: string
+          external_id?: string | null
+          fingerprint?: string
+          id?: string
+          import_id?: string | null
+          statement_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_card_transactions_credit_card_id_fkey"
+            columns: ["credit_card_id"]
+            isOneToOne: false
+            referencedRelation: "credit_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_card_transactions_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_card_transactions_statement_id_fkey"
+            columns: ["statement_id"]
+            isOneToOne: false
+            referencedRelation: "credit_card_statements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       credit_cards: {
         Row: {
           best_purchase_day: number | null
+          closing_day: number | null
           created_at: string
           due_day: number
           id: string
@@ -198,6 +316,7 @@ export type Database = {
         }
         Insert: {
           best_purchase_day?: number | null
+          closing_day?: number | null
           created_at?: string
           due_day: number
           id?: string
@@ -210,6 +329,7 @@ export type Database = {
         }
         Update: {
           best_purchase_day?: number | null
+          closing_day?: number | null
           created_at?: string
           due_day?: number
           id?: string
@@ -313,6 +433,75 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      imports: {
+        Row: {
+          account_id: string | null
+          created_at: string
+          credit_card_id: string | null
+          duplicate_records: number | null
+          error_message: string | null
+          file_hash: string
+          file_name: string
+          file_type: string
+          id: string
+          imported_records: number | null
+          scope: string
+          status: string
+          total_records: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          created_at?: string
+          credit_card_id?: string | null
+          duplicate_records?: number | null
+          error_message?: string | null
+          file_hash: string
+          file_name: string
+          file_type?: string
+          id?: string
+          imported_records?: number | null
+          scope?: string
+          status?: string
+          total_records?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string | null
+          created_at?: string
+          credit_card_id?: string | null
+          duplicate_records?: number | null
+          error_message?: string | null
+          file_hash?: string
+          file_name?: string
+          file_type?: string
+          id?: string
+          imported_records?: number | null
+          scope?: string
+          status?: string
+          total_records?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imports_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imports_credit_card_id_fkey"
+            columns: ["credit_card_id"]
+            isOneToOne: false
+            referencedRelation: "credit_cards"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
