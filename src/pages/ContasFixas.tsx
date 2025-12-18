@@ -41,6 +41,7 @@ import {
   Clock,
   AlertCircle,
   MoreHorizontal,
+  Pencil,
   Trash2,
   Calendar,
   Loader2
@@ -54,7 +55,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { useFixedBills, CreateFixedBillData } from "@/hooks/useFixedBills";
+import { useFixedBills, CreateFixedBillData, FixedBill, UpdateFixedBillData } from "@/hooks/useFixedBills";
 import { z } from "zod";
 import { toast } from "sonner";
 
@@ -92,10 +93,11 @@ const fixedBillSchema = z.object({
 });
 
 export default function ContasFixas() {
-  const { bills, isLoading, createBill, markAsPaid, deleteBill, isCreating } = useFixedBills();
+  const { bills, isLoading, createBill, updateBill, markAsPaid, deleteBill, isCreating, isUpdating } = useFixedBills();
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [newBill, setNewBill] = useState({
+  const [editingBill, setEditingBill] = useState<FixedBill | null>(null);
+  const [formData, setFormData] = useState({
     name: "",
     description: "",
     amount: "",
@@ -103,6 +105,8 @@ export default function ContasFixas() {
     dueDay: "",
     autoGenerate: true,
   });
+
+  const isEditing = !!editingBill;
 
   // Calculate summaries
   const totalMonthly = bills.reduce((sum, b) => sum + b.amount, 0);
@@ -151,7 +155,7 @@ export default function ContasFixas() {
   };
 
   const resetForm = () => {
-    setNewBill({
+    setFormData({
       name: "",
       description: "",
       amount: "",
@@ -159,19 +163,33 @@ export default function ContasFixas() {
       dueDay: "",
       autoGenerate: true,
     });
+    setEditingBill(null);
+  };
+
+  const openEditDialog = (bill: FixedBill) => {
+    setEditingBill(bill);
+    setFormData({
+      name: bill.name,
+      description: bill.description || "",
+      amount: bill.amount.toString(),
+      category: bill.category,
+      dueDay: bill.due_day.toString(),
+      autoGenerate: bill.auto_generate,
+    });
+    setIsDialogOpen(true);
   };
 
   const handleSubmit = async () => {
-    const amount = parseFloat(newBill.amount);
-    const dueDay = parseInt(newBill.dueDay);
+    const amount = parseFloat(formData.amount);
+    const dueDay = parseInt(formData.dueDay);
     
     const validation = fixedBillSchema.safeParse({
-      name: newBill.name,
+      name: formData.name,
       amount: isNaN(amount) ? 0 : amount,
-      category: newBill.category,
+      category: formData.category,
       due_day: isNaN(dueDay) ? 0 : dueDay,
-      description: newBill.description,
-      auto_generate: newBill.autoGenerate,
+      description: formData.description,
+      auto_generate: formData.autoGenerate,
     });
 
     if (!validation.success) {
@@ -179,17 +197,29 @@ export default function ContasFixas() {
       return;
     }
 
-    const data: CreateFixedBillData = {
-      name: newBill.name,
-      amount,
-      category: newBill.category,
-      due_day: dueDay,
-      description: newBill.description || undefined,
-      auto_generate: newBill.autoGenerate,
-    };
-
     try {
-      await createBill(data);
+      if (isEditing && editingBill) {
+        const updateData: UpdateFixedBillData = {
+          id: editingBill.id,
+          name: formData.name,
+          amount,
+          category: formData.category,
+          due_day: dueDay,
+          description: formData.description || undefined,
+          auto_generate: formData.autoGenerate,
+        };
+        await updateBill(updateData);
+      } else {
+        const data: CreateFixedBillData = {
+          name: formData.name,
+          amount,
+          category: formData.category,
+          due_day: dueDay,
+          description: formData.description || undefined,
+          auto_generate: formData.autoGenerate,
+        };
+        await createBill(data);
+      }
       setIsDialogOpen(false);
       resetForm();
     } catch (error) {
@@ -233,9 +263,11 @@ export default function ContasFixas() {
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
-                <DialogTitle className="font-display">Nova Conta Fixa</DialogTitle>
+                <DialogTitle className="font-display">
+                  {isEditing ? "Editar Conta Fixa" : "Nova Conta Fixa"}
+                </DialogTitle>
                 <DialogDescription>
-                  Cadastre uma despesa que se repete todo mês
+                  {isEditing ? "Atualize os dados da conta fixa" : "Cadastre uma despesa que se repete todo mês"}
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
@@ -245,8 +277,8 @@ export default function ContasFixas() {
                   <Input
                     id="name"
                     placeholder="Ex: Aluguel, Conta de luz..."
-                    value={newBill.name}
-                    onChange={(e) => setNewBill({ ...newBill, name: e.target.value })}
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   />
                 </div>
 
@@ -256,8 +288,8 @@ export default function ContasFixas() {
                   <Input
                     id="description"
                     placeholder="Ex: Apartamento centro"
-                    value={newBill.description}
-                    onChange={(e) => setNewBill({ ...newBill, description: e.target.value })}
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   />
                 </div>
 
@@ -270,15 +302,15 @@ export default function ContasFixas() {
                       type="number"
                       step="0.01"
                       placeholder="0,00"
-                      value={newBill.amount}
-                      onChange={(e) => setNewBill({ ...newBill, amount: e.target.value })}
+                      value={formData.amount}
+                      onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                     />
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="dueDay">Dia de vencimento *</Label>
                     <Select
-                      value={newBill.dueDay}
-                      onValueChange={(v) => setNewBill({ ...newBill, dueDay: v })}
+                      value={formData.dueDay}
+                      onValueChange={(v) => setFormData({ ...formData, dueDay: v })}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Dia" />
@@ -298,8 +330,8 @@ export default function ContasFixas() {
                 <div className="grid gap-2">
                   <Label htmlFor="category">Categoria *</Label>
                   <Select
-                    value={newBill.category}
-                    onValueChange={(v) => setNewBill({ ...newBill, category: v })}
+                    value={formData.category}
+                    onValueChange={(v) => setFormData({ ...formData, category: v })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione..." />
@@ -326,8 +358,8 @@ export default function ContasFixas() {
                   </div>
                   <Switch
                     id="auto-generate"
-                    checked={newBill.autoGenerate}
-                    onCheckedChange={(checked) => setNewBill({ ...newBill, autoGenerate: checked })}
+                    checked={formData.autoGenerate}
+                    onCheckedChange={(checked) => setFormData({ ...formData, autoGenerate: checked })}
                   />
                 </div>
               </div>
@@ -335,9 +367,9 @@ export default function ContasFixas() {
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancelar
                 </Button>
-                <Button onClick={handleSubmit} disabled={isCreating}>
-                  {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Salvar
+                <Button onClick={handleSubmit} disabled={isCreating || isUpdating}>
+                  {(isCreating || isUpdating) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isEditing ? "Atualizar" : "Salvar"}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -475,6 +507,10 @@ export default function ContasFixas() {
                                   <DropdownMenuSeparator />
                                 </>
                               )}
+                              <DropdownMenuItem onClick={() => openEditDialog(bill)}>
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Editar
+                              </DropdownMenuItem>
                               <DropdownMenuItem 
                                 className="text-destructive"
                                 onClick={() => handleDelete(bill.id)}
