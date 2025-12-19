@@ -20,6 +20,9 @@ export interface FixedBill {
   payment_account_id: string | null;
   auto_generate: boolean;
   is_active: boolean;
+  start_date: string;
+  end_date: string | null;
+  frequency: string;
   created_at: string;
   updated_at: string;
 }
@@ -44,6 +47,8 @@ export interface CreateFixedBillData {
   amount: number;
   category: string;
   due_day: number;
+  start_date: string; // YYYY-MM-DD
+  end_date?: string; // YYYY-MM-DD
   auto_generate?: boolean;
 }
 
@@ -91,6 +96,24 @@ export function useFixedBills() {
     enabled: !!user,
   });
 
+
+  const generateBillInstancesMutation = useMutation({
+    mutationFn: async ({ billId, months = 12 }: { billId: string; months?: number }) => {
+      const { error } = await supabase.rpc("generate_bill_instances", {
+        p_fixed_bill_id: billId,
+        p_months: months,
+      });
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bills_instances"] });
+    },
+    onError: (error: Error) => {
+      toast.error(`Erro ao gerar instâncias: ${error.message}`);
+    },
+  });
+
   const createMutation = useMutation({
     mutationFn: async (data: CreateFixedBillData) => {
       if (!user) throw new Error("Usuário não autenticado");
@@ -105,6 +128,9 @@ export function useFixedBills() {
           amount: data.amount,
           category: data.category,
           due_day: data.due_day,
+          start_date: data.start_date,
+          end_date: data.end_date || null,
+          frequency: "monthly",
           auto_generate: data.auto_generate ?? true,
         })
         .select()
@@ -112,29 +138,19 @@ export function useFixedBills() {
       
       if (billError) throw billError;
       
-      // Criar instância do mês atual
-      const currentMonth = startOfMonth(new Date());
-      const dueDate = setDate(currentMonth, data.due_day);
-      
-      const { error: instanceError } = await supabase
-        .from("bills_instances")
-        .insert({
-          user_id: user.id,
-          fixed_bill_id: bill.id,
-          reference_month: format(currentMonth, "yyyy-MM-dd"),
-          due_date: format(dueDate, "yyyy-MM-dd"),
-          amount: data.amount,
-          status: dueDate < new Date() ? "overdue" : "pending",
-        });
-      
-      if (instanceError) throw instanceError;
-      
       return bill;
     },
-    onSuccess: () => {
+    onSuccess: async (bill) => {
+      // Generate instances automatically after creating bill
+      try {
+        await generateBillInstancesMutation.mutateAsync({ billId: bill.id, months: 12 });
+        toast.success("Conta fixa cadastrada e próximas 12 faturas geradas!");
+      } catch (error) {
+        toast.success("Conta fixa cadastrada, mas houve erro ao gerar instâncias");
+      }
+      
       queryClient.invalidateQueries({ queryKey: ["fixed_bills"] });
       queryClient.invalidateQueries({ queryKey: ["bills_instances"] });
-      toast.success("Conta fixa cadastrada com sucesso!");
     },
     onError: (error: Error) => {
       toast.error(`Erro ao cadastrar: ${error.message}`);
@@ -245,7 +261,9 @@ export function useFixedBills() {
     updateBill: updateMutation.mutateAsync,
     markAsPaid: markAsPaidMutation.mutateAsync,
     deleteBill: deleteMutation.mutateAsync,
+    generateBillInstances: generateBillInstancesMutation.mutateAsync,
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
+    isGenerating: generateBillInstancesMutation.isPending,
   };
 }
