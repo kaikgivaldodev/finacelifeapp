@@ -614,7 +614,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_bill_instances: {
+        Args: { p_fixed_bill_id: string; p_months?: number }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

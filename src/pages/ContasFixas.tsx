@@ -53,11 +53,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { useFixedBills, CreateFixedBillData, FixedBill, UpdateFixedBillData } from "@/hooks/useFixedBills";
 import { z } from "zod";
 import { toast } from "sonner";
+import { format, parse } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { DatePicker } from "@/components/ui/date-picker";
 
 const categories = [
   "Moradia",
@@ -88,8 +91,18 @@ const fixedBillSchema = z.object({
   amount: z.number().positive("Valor deve ser maior que zero"),
   category: z.string().min(1, "Categoria é obrigatória"),
   due_day: z.number().min(1).max(31, "Dia deve ser entre 1 e 31"),
+  start_date: z.string().min(1, "Data de início é obrigatória"),
+  end_date: z.string().optional(),
   description: z.string().optional(),
   auto_generate: z.boolean().optional(),
+}).refine(data => {
+  if (data.end_date && data.start_date) {
+    return new Date(data.end_date) >= new Date(data.start_date);
+  }
+  return true;
+}, {
+  message: "Data de término deve ser maior ou igual à data de início",
+  path: ["end_date"],
 });
 
 export default function ContasFixas() {
@@ -103,10 +116,23 @@ export default function ContasFixas() {
     amount: "",
     category: "",
     dueDay: "",
+    startDate: format(new Date(), "yyyy-MM-dd"),
+    endDate: "",
     autoGenerate: true,
   });
 
   const isEditing = !!editingBill;
+  
+  // Preview text for the billing schedule
+  const billingPreview = useMemo(() => {
+    if (!formData.dueDay || !formData.startDate) return "";
+    
+    const startDate = parse(formData.startDate, "yyyy-MM-dd", new Date());
+    const monthLabel = format(startDate, "MMMM 'de' yyyy", { locale: ptBR });
+    const capitalizedMonth = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
+    
+    return `Vai cobrar todo dia ${formData.dueDay} de cada mês, começando em ${capitalizedMonth}`;
+  }, [formData.dueDay, formData.startDate]);
 
   // Calculate summaries
   const totalMonthly = bills.reduce((sum, b) => sum + b.amount, 0);
@@ -161,6 +187,8 @@ export default function ContasFixas() {
       amount: "",
       category: "",
       dueDay: "",
+      startDate: format(new Date(), "yyyy-MM-dd"),
+      endDate: "",
       autoGenerate: true,
     });
     setEditingBill(null);
@@ -174,6 +202,8 @@ export default function ContasFixas() {
       amount: bill.amount.toString(),
       category: bill.category,
       dueDay: bill.due_day.toString(),
+      startDate: bill.start_date,
+      endDate: bill.end_date || "",
       autoGenerate: bill.auto_generate,
     });
     setIsDialogOpen(true);
@@ -188,6 +218,8 @@ export default function ContasFixas() {
       amount: isNaN(amount) ? 0 : amount,
       category: formData.category,
       due_day: isNaN(dueDay) ? 0 : dueDay,
+      start_date: formData.startDate,
+      end_date: formData.endDate || undefined,
       description: formData.description,
       auto_generate: formData.autoGenerate,
     });
@@ -215,6 +247,8 @@ export default function ContasFixas() {
           amount,
           category: formData.category,
           due_day: dueDay,
+          start_date: formData.startDate,
+          end_date: formData.endDate || undefined,
           description: formData.description || undefined,
           auto_generate: formData.autoGenerate,
         };
@@ -345,6 +379,43 @@ export default function ContasFixas() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* Data de início e término */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="startDate">Começa em *</Label>
+                    <DatePicker
+                      value={formData.startDate ? parse(formData.startDate, "yyyy-MM-dd", new Date()) : undefined}
+                      onChange={(date) => {
+                        if (date) {
+                          setFormData({ ...formData, startDate: format(date, "yyyy-MM-dd") });
+                        }
+                      }}
+                      placeholder="Selecione a data"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="endDate">Termina em (opcional)</Label>
+                    <DatePicker
+                      value={formData.endDate ? parse(formData.endDate, "yyyy-MM-dd", new Date()) : undefined}
+                      onChange={(date) => {
+                        if (date) {
+                          setFormData({ ...formData, endDate: format(date, "yyyy-MM-dd") });
+                        } else {
+                          setFormData({ ...formData, endDate: "" });
+                        }
+                      }}
+                      placeholder="Sem data final"
+                    />
+                  </div>
+                </div>
+
+                {/* Preview */}
+                {billingPreview && (
+                  <div className="rounded-lg bg-muted/50 p-3 text-sm text-muted-foreground">
+                    💡 {billingPreview}
+                  </div>
+                )}
 
                 {/* Auto-generate toggle */}
                 <div className="flex items-center justify-between rounded-lg border border-border p-3">
