@@ -46,7 +46,8 @@ import {
   Receipt,
   FileDown,
   Calendar,
-  Tag
+  Tag,
+  Plus
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -59,7 +60,7 @@ import { Badge } from "@/components/ui/badge";
 import { useState, useMemo } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useCreditCards } from "@/hooks/useCreditCards";
-import { useCreditCardStatements, CreditCardTransaction, UpdateTransactionData } from "@/hooks/useCreditCardStatements";
+import { useCreditCardStatements, CreditCardTransaction, UpdateTransactionData, CreateTransactionData } from "@/hooks/useCreditCardStatements";
 import { ImportDialog } from "@/components/credit-card/ImportDialog";
 import { toast } from "sonner";
 import { format, subMonths } from "date-fns";
@@ -109,8 +110,10 @@ export default function Fatura() {
     markStatementAsPaid,
     isMarkingPaid,
     getStatementByMonth,
+    createTransaction,
+    isCreatingTransaction,
   } = useCreditCardStatements(cardId);
-  
+
   const statement = cardId ? getStatementByMonth(cardId, selectedMonth) : undefined;
   
   // Filter states
@@ -127,9 +130,18 @@ export default function Fatura() {
     category: "",
   });
   
+  // Add dialog states
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [addFormData, setAddFormData] = useState({
+    date: "",
+    description: "",
+    amount: "",
+    category: categories[0],
+  });
+  
   // Import dialog state
   const [showImportDialog, setShowImportDialog] = useState(false);
-  
+
   // Generate last 12 months options
   const monthOptions = useMemo(() => {
     const options = [];
@@ -192,6 +204,18 @@ export default function Fatura() {
     });
   };
   
+  const openAddDialog = () => {
+    const today = new Date();
+    const todayStr = format(today, "yyyy-MM-dd");
+    setAddFormData({
+      date: todayStr,
+      description: "",
+      amount: "",
+      category: categories[0],
+    });
+    setIsAddDialogOpen(true);
+  };
+  
   const handleEditSubmit = async () => {
     if (!editingTransaction) return;
     
@@ -213,6 +237,28 @@ export default function Fatura() {
     setEditingTransaction(null);
   };
   
+  const handleAddSubmit = async () => {
+    if (!statement || !cardId) return;
+
+    const amount = parseFloat(addFormData.amount);
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("Valor inválido");
+      return;
+    }
+
+    const data: CreateTransactionData = {
+      credit_card_id: cardId,
+      statement_id: statement.id,
+      date: addFormData.date,
+      description: addFormData.description,
+      amount,
+      category: addFormData.category,
+    };
+
+    await createTransaction(data);
+    setIsAddDialogOpen(false);
+  };
+
   const handleDelete = async (transactionId: string) => {
     if (confirm("Tem certeza que deseja excluir esta transação?")) {
       await deleteTransaction(transactionId);
@@ -223,7 +269,7 @@ export default function Fatura() {
     if (!statement) return;
     await markStatementAsPaid(statement.id);
   };
-  
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "paid":
@@ -406,18 +452,30 @@ export default function Fatura() {
             </Select>
           </div>
           
-          {/* Search */}
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Buscar transação..."
-              className="pl-9"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+            {/* Search */}
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar transação..."
+                className="pl-9"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            {statement && (
+              <Button
+                variant="outline"
+                className="whitespace-nowrap"
+                onClick={openAddDialog}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Adicionar transação
+              </Button>
+            )}
           </div>
         </div>
-        
+
         {/* Transactions Table */}
         {!statement || filteredTransactions.length === 0 ? (
           <EmptyState
