@@ -66,6 +66,8 @@ import { toast } from "sonner";
 import { format, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { DatePicker } from "@/components/ui/date-picker";
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
 const categories = [
   "Sem categoria",
@@ -189,6 +191,34 @@ export default function Fatura() {
   
   // Calculate total from filtered transactions (always from statement for consistency)
   const statementTotal = statement?.total_amount || 0;
+  
+  // Calculate category totals for chart
+  const categoryData = useMemo(() => {
+    if (!statement) return [];
+    
+    const statementTransactions = transactions.filter(t => t.statement_id === statement.id);
+    const categoryTotals = new Map<string, number>();
+    
+    statementTransactions.forEach(t => {
+      const current = categoryTotals.get(t.category) || 0;
+      categoryTotals.set(t.category, current + t.amount);
+    });
+    
+    return Array.from(categoryTotals.entries())
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+  }, [transactions, statement]);
+  
+  const chartColors = [
+    "hsl(var(--chart-1))",
+    "hsl(var(--chart-2))",
+    "hsl(var(--chart-3))",
+    "hsl(var(--chart-4))",
+    "hsl(var(--chart-5))",
+    "hsl(var(--primary))",
+    "hsl(var(--accent))",
+    "hsl(var(--secondary))",
+  ];
   
   const handleMonthChange = (month: string) => {
     setSearchParams({ mes: month });
@@ -409,6 +439,64 @@ export default function Fatura() {
           </div>
         </div>
         
+        {/* Category Chart */}
+        {statement && categoryData.length > 0 && (
+          <div className="rounded-xl border border-border bg-card p-6">
+            <h2 className="font-display text-lg font-semibold text-foreground mb-4">
+              Resumo por Categoria
+            </h2>
+            <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={categoryData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={80}
+                    fill="hsl(var(--primary))"
+                    dataKey="value"
+                  >
+                    {categoryData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        return (
+                          <div className="rounded-lg border border-border bg-background p-2 shadow-md">
+                            <div className="grid gap-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-sm font-medium text-foreground">
+                                  {payload[0].name}
+                                </span>
+                                <span className="text-sm font-bold text-foreground">
+                                  {formatCurrency(payload[0].value as number)}
+                                </span>
+                              </div>
+                              <span className="text-xs text-muted-foreground">
+                                {((payload[0].value as number / statementTotal) * 100).toFixed(1)}% do total
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Legend 
+                    verticalAlign="bottom" 
+                    height={36}
+                    formatter={(value) => <span className="text-sm text-foreground">{value}</span>}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+        
         {/* Filters */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
@@ -620,6 +708,73 @@ export default function Fatura() {
               <Button onClick={handleEditSubmit} disabled={isUpdatingTransaction}>
                 {isUpdatingTransaction && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Salvar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        
+        {/* Add Transaction Dialog */}
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle className="font-display">Nova Transação</DialogTitle>
+              <DialogDescription>
+                Adicione uma transação manual à fatura
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label>Data</Label>
+                <Input
+                  type="date"
+                  value={addFormData.date}
+                  onChange={(e) => setAddFormData({ ...addFormData, date: e.target.value })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>Descrição</Label>
+                <Input
+                  value={addFormData.description}
+                  onChange={(e) => setAddFormData({ ...addFormData, description: e.target.value })}
+                  placeholder="Ex: Supermercado"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label>Valor (R$)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={addFormData.amount}
+                    onChange={(e) => setAddFormData({ ...addFormData, amount: e.target.value })}
+                    placeholder="0,00"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Categoria</Label>
+                  <Select
+                    value={addFormData.category}
+                    onValueChange={(v) => setAddFormData({ ...addFormData, category: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map(cat => (
+                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleAddSubmit} disabled={isCreatingTransaction || !statement}>
+                {isCreatingTransaction && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Adicionar
               </Button>
             </DialogFooter>
           </DialogContent>
