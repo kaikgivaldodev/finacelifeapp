@@ -32,7 +32,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { EmptyState } from "@/components/ui/empty-state";
 import { DatePicker } from "@/components/ui/date-picker";
-import { formatCurrency, formatDate } from "@/lib/formatters";
+import { formatCurrency, formatDate, toYYYYMMDD } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 import { 
   Plus, 
@@ -88,7 +88,7 @@ const paymentMethods = [
 // Schema de validação com Zod
 const transactionSchema = z.object({
   type: z.enum(["income", "expense"]),
-  date: z.date({ required_error: "Data é obrigatória" }),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida"),
   amount: z.number().positive("Valor deve ser maior que zero"),
   category: z.string().min(1, "Categoria é obrigatória"),
   payment_method: z.string().min(1, "Forma de pagamento é obrigatória"),
@@ -176,7 +176,7 @@ export default function Lancamentos() {
     
     const validation = transactionSchema.safeParse({
       type: formData.type,
-      date: formData.date,
+      date: toYYYYMMDD(formData.date),
       amount: isNaN(amount) ? 0 : amount,
       category: formData.category,
       payment_method: formData.payment_method,
@@ -195,7 +195,7 @@ export default function Lancamentos() {
         const updateData: UpdateTransactionData = {
           id: editingTransaction.id,
           type: formData.type,
-          date: format(formData.date, "yyyy-MM-dd"),
+          date: toYYYYMMDD(formData.date),
           amount,
           category: formData.category,
           payment_method: formData.payment_method,
@@ -207,7 +207,7 @@ export default function Lancamentos() {
       } else {
         const data: CreateTransactionData = {
           type: formData.type,
-          date: format(formData.date, "yyyy-MM-dd"),
+          date: toYYYYMMDD(formData.date),
           amount,
           category: formData.category,
           payment_method: formData.payment_method,

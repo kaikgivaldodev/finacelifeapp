@@ -6,7 +6,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { toast } from "sonner";
-import { startOfMonth, format, setDate } from "date-fns";
+import { startOfMonth, setDate } from "date-fns";
+import { toYYYYMMDD } from "@/lib/formatters";
 
 export interface FixedBill {
   id: string;
@@ -81,7 +82,7 @@ export function useFixedBills() {
     queryKey: ["bills_instances", user?.id],
     queryFn: async () => {
       if (!user) return [];
-      const currentMonth = format(startOfMonth(new Date()), "yyyy-MM-dd");
+      const currentMonth = toYYYYMMDD(startOfMonth(new Date()));
       
       const { data, error } = await supabase
         .from("bills_instances")
@@ -183,10 +184,10 @@ export function useFixedBills() {
           .from("bills_instances")
           .update({
             amount: updateData.amount ?? result.amount,
-            due_date: format(dueDate, "yyyy-MM-dd"),
+            due_date: toYYYYMMDD(dueDate),
           })
           .eq("fixed_bill_id", id)
-          .eq("reference_month", format(currentMonth, "yyyy-MM-dd"));
+          .eq("reference_month", toYYYYMMDD(currentMonth));
       }
 
       return result;

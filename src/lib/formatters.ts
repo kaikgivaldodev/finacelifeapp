@@ -1,3 +1,23 @@
+/**
+ * Converte Date para string YYYY-MM-DD no fuso local (sem UTC)
+ * Use SEMPRE este helper ao salvar datas de calendário no banco
+ */
+export const toYYYYMMDD = (d: Date): string => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+
+/**
+ * Converte string YYYY-MM-DD para formato brasileiro dd/MM/yyyy
+ * Parse manual para evitar problemas de UTC
+ */
+export const yyyyMmDdToBr = (s: string): string => {
+  const [y, m, d] = s.split("-");
+  return `${d}/${m}/${y}`;
+};
+
 // Currency formatter for Brazilian Real
 export const formatCurrency = (value: number): string => {
   return new Intl.NumberFormat("pt-BR", {
@@ -6,14 +26,19 @@ export const formatCurrency = (value: number): string => {
   }).format(value);
 };
 
-// Date formatter for Brazilian format
+// Date formatter for Brazilian format (dd/MM/yyyy)
 export const formatDate = (date: Date | string): string => {
-  const d = typeof date === "string" ? new Date(date) : date;
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(d);
+  // Se for string YYYY-MM-DD, usa parse manual
+  if (typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return yyyyMmDdToBr(date);
+  }
+  // Se for Date, converte para YYYY-MM-DD e depois para BR
+  if (date instanceof Date) {
+    return yyyyMmDdToBr(toYYYYMMDD(date));
+  }
+  // Fallback para outros formatos
+  const d = new Date(date);
+  return yyyyMmDdToBr(toYYYYMMDD(d));
 };
 
 // Short date format (day/month)

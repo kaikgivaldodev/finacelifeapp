@@ -1,6 +1,7 @@
 /**
  * CSV and OFX parsers for credit card statements
  */
+import { toYYYYMMDD } from "./formatters";
 
 export interface ParsedTransaction {
   date: string;
@@ -100,10 +101,10 @@ export function parseDate(value: string): string | null {
     return `${year}-${month}-${day}`;
   }
   
-  // Try native Date parsing
+  // Try native Date parsing (como último recurso)
   const date = new Date(cleaned);
   if (!isNaN(date.getTime())) {
-    return date.toISOString().split('T')[0];
+    return toYYYYMMDD(date); // Uso seguro sem UTC
   }
   
   return null;
