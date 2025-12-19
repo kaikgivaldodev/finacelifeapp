@@ -9,7 +9,8 @@ import {
   Wallet,
   ChevronLeft,
   ChevronRight,
-  LogOut
+  LogOut,
+  Calendar
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useState } from "react";
@@ -26,6 +27,7 @@ const menuItems: SidebarItem[] = [
   { label: "Lançamentos", icon: Receipt, href: "/lancamentos" },
   { label: "Contas Bancárias", icon: Wallet, href: "/contas" },
   { label: "Contas Fixas", icon: Receipt, href: "/contas-fixas" },
+  { label: "Agenda Mensal", icon: Calendar, href: "/agenda-contas" },
   { label: "Cartões de Crédito", icon: CreditCard, href: "/cartoes" },
   { label: "Metas", icon: Target, href: "/metas" },
   { label: "Relatórios", icon: BarChart3, href: "/relatorios" },

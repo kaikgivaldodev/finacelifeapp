@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import Dashboard from "./pages/Dashboard";
 import Lancamentos from "./pages/Lancamentos";
 import ContasFixas from "./pages/ContasFixas";
+import AgendaContas from "./pages/AgendaContas";
 import Cartoes from "./pages/Cartoes";
 import Fatura from "./pages/Fatura";
 import Contas from "./pages/Contas";
@@ -62,6 +63,7 @@ function AppRoutes() {
       <Route path="/lancamentos" element={<ProtectedRoute><Lancamentos /></ProtectedRoute>} />
       <Route path="/contas" element={<ProtectedRoute><Contas /></ProtectedRoute>} />
       <Route path="/contas-fixas" element={<ProtectedRoute><ContasFixas /></ProtectedRoute>} />
+      <Route path="/agenda-contas" element={<ProtectedRoute><AgendaContas /></ProtectedRoute>} />
       <Route path="/cartoes" element={<ProtectedRoute><Cartoes /></ProtectedRoute>} />
       <Route path="/cartoes/:cardId/fatura" element={<ProtectedRoute><Fatura /></ProtectedRoute>} />
       <Route path="/metas" element={<ProtectedRoute><Metas /></ProtectedRoute>} />
