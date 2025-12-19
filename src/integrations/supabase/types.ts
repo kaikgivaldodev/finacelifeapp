@@ -512,6 +512,42 @@ export type Database = {
           },
         ]
       }
+      notification_settings: {
+        Row: {
+          created_at: string
+          id: string
+          notify_1_day_before: boolean
+          notify_3_days_before: boolean
+          notify_on_due_date: boolean
+          push_enabled: boolean
+          push_subscription: Json | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notify_1_day_before?: boolean
+          notify_3_days_before?: boolean
+          notify_on_due_date?: boolean
+          push_enabled?: boolean
+          push_subscription?: Json | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notify_1_day_before?: boolean
+          notify_3_days_before?: boolean
+          notify_on_due_date?: boolean
+          push_enabled?: boolean
+          push_subscription?: Json | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
