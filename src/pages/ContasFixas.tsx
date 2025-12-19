@@ -32,7 +32,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { EmptyState } from "@/components/ui/empty-state";
-import { formatCurrency, formatDueDay, formatRelativeDate } from "@/lib/formatters";
+import { formatCurrency, formatDueDay, formatRelativeDate, toYYYYMMDD } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 import { 
   Plus, 
@@ -116,7 +116,7 @@ export default function ContasFixas() {
     amount: "",
     category: "",
     dueDay: "",
-    startDate: format(new Date(), "yyyy-MM-dd"),
+    startDate: toYYYYMMDD(new Date()),
     endDate: "",
     autoGenerate: true,
   });
@@ -187,7 +187,7 @@ export default function ContasFixas() {
       amount: "",
       category: "",
       dueDay: "",
-      startDate: format(new Date(), "yyyy-MM-dd"),
+      startDate: toYYYYMMDD(new Date()),
       endDate: "",
       autoGenerate: true,
     });
@@ -388,7 +388,7 @@ export default function ContasFixas() {
                       value={formData.startDate ? parse(formData.startDate, "yyyy-MM-dd", new Date()) : undefined}
                       onChange={(date) => {
                         if (date) {
-                          setFormData({ ...formData, startDate: format(date, "yyyy-MM-dd") });
+                          setFormData({ ...formData, startDate: toYYYYMMDD(date) });
                         }
                       }}
                       placeholder="Selecione a data"
@@ -400,7 +400,7 @@ export default function ContasFixas() {
                       value={formData.endDate ? parse(formData.endDate, "yyyy-MM-dd", new Date()) : undefined}
                       onChange={(date) => {
                         if (date) {
-                          setFormData({ ...formData, endDate: format(date, "yyyy-MM-dd") });
+                          setFormData({ ...formData, endDate: toYYYYMMDD(date) });
                         } else {
                           setFormData({ ...formData, endDate: "" });
                         }
