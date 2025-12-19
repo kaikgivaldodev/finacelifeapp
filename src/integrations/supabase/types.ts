@@ -645,6 +645,27 @@ export type Database = {
           },
         ]
       }
+      transactions_date_backup_20251219: {
+        Row: {
+          created_at: string | null
+          date: string | null
+          id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          date?: string | null
+          id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          date?: string | null
+          id?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
