@@ -351,10 +351,13 @@ export type Database = {
           created_at: string
           description: string | null
           due_day: number
+          end_date: string | null
+          frequency: string
           id: string
           is_active: boolean
           name: string
           payment_account_id: string | null
+          start_date: string
           updated_at: string
           user_id: string
         }
@@ -366,10 +369,13 @@ export type Database = {
           created_at?: string
           description?: string | null
           due_day: number
+          end_date?: string | null
+          frequency?: string
           id?: string
           is_active?: boolean
           name: string
           payment_account_id?: string | null
+          start_date: string
           updated_at?: string
           user_id: string
         }
@@ -381,10 +387,13 @@ export type Database = {
           created_at?: string
           description?: string | null
           due_day?: number
+          end_date?: string | null
+          frequency?: string
           id?: string
           is_active?: boolean
           name?: string
           payment_account_id?: string | null
+          start_date?: string
           updated_at?: string
           user_id?: string
         }
