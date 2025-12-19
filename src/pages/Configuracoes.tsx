@@ -21,13 +21,33 @@ import {
   LogOut
 } from "lucide-react";
 import { useState } from "react";
+import { useNotifications } from "@/hooks/useNotifications";
+import { useAuth } from "@/hooks/useAuth";
+import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 export default function Configuracoes() {
+  const { signOut } = useAuth();
+  const { 
+    settings, 
+    permission, 
+    loading, 
+    requestPermission, 
+    updateSettings,
+    disableNotifications,
+    isEnabled 
+  } = useNotifications();
+
   const [notifications, setNotifications] = useState({
     billReminders: true,
     weeklyReport: false,
     goalAlerts: true,
   });
+
+  const handleLogout = async () => {
+    await signOut();
+    toast.success('Logout realizado com sucesso');
+  };
 
   return (
     <MainLayout>
@@ -69,49 +89,136 @@ export default function Configuracoes() {
         <div className="rounded-xl border border-border bg-card p-6">
           <div className="flex items-center gap-3 mb-6">
             <Bell className="h-5 w-5 text-primary" />
-            <h2 className="font-display text-lg font-semibold text-foreground">Notificações</h2>
+            <h2 className="font-display text-lg font-semibold text-foreground">Notificações Push</h2>
           </div>
           
-          <div className="space-y-4">
-            <div className="flex items-center justify-between rounded-lg border border-border p-4">
-              <div>
-                <p className="font-medium text-foreground">Lembretes de contas</p>
-                <p className="text-sm text-muted-foreground">
-                  Receba alertas de contas próximas do vencimento
-                </p>
-              </div>
-              <Switch
-                checked={notifications.billReminders}
-                onCheckedChange={(checked) => setNotifications({ ...notifications, billReminders: checked })}
-              />
+          {loading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-            
-            <div className="flex items-center justify-between rounded-lg border border-border p-4">
-              <div>
-                <p className="font-medium text-foreground">Relatório semanal</p>
-                <p className="text-sm text-muted-foreground">
-                  Receba um resumo das suas finanças toda semana
-                </p>
+          ) : (
+            <div className="space-y-4">
+              {/* Estado das notificações */}
+              <div className="rounded-lg border border-border bg-muted/50 p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-foreground">
+                      Notificações no navegador
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {permission === 'granted' 
+                        ? 'Permissão concedida' 
+                        : permission === 'denied'
+                        ? 'Permissão negada'
+                        : 'Permissão não solicitada'}
+                    </p>
+                  </div>
+                  {permission !== 'granted' && (
+                    <Button onClick={requestPermission} size="sm">
+                      Ativar notificações
+                    </Button>
+                  )}
+                  {permission === 'granted' && !isEnabled && (
+                    <Button 
+                      onClick={() => updateSettings({ push_enabled: true })} 
+                      size="sm"
+                      variant="outline"
+                    >
+                      Reativar
+                    </Button>
+                  )}
+                  {isEnabled && (
+                    <Button 
+                      onClick={disableNotifications} 
+                      size="sm"
+                      variant="outline"
+                    >
+                      Desativar
+                    </Button>
+                  )}
+                </div>
               </div>
-              <Switch
-                checked={notifications.weeklyReport}
-                onCheckedChange={(checked) => setNotifications({ ...notifications, weeklyReport: checked })}
-              />
-            </div>
-            
-            <div className="flex items-center justify-between rounded-lg border border-border p-4">
-              <div>
-                <p className="font-medium text-foreground">Alertas de metas</p>
-                <p className="text-sm text-muted-foreground">
-                  Seja notificado quando atingir ou ultrapassar metas
-                </p>
+
+              {/* Configurações de quando notificar */}
+              {settings && isEnabled && (
+                <>
+                  <div className="flex items-center justify-between rounded-lg border border-border p-4">
+                    <div>
+                      <p className="font-medium text-foreground">3 dias antes</p>
+                      <p className="text-sm text-muted-foreground">
+                        Receber alerta 3 dias antes do vencimento
+                      </p>
+                    </div>
+                    <Switch
+                      checked={settings.notify_3_days_before}
+                      onCheckedChange={(checked) => 
+                        updateSettings({ notify_3_days_before: checked })
+                      }
+                    />
+                  </div>
+                  
+                  <div className="flex items-center justify-between rounded-lg border border-border p-4">
+                    <div>
+                      <p className="font-medium text-foreground">1 dia antes</p>
+                      <p className="text-sm text-muted-foreground">
+                        Receber alerta 1 dia antes do vencimento
+                      </p>
+                    </div>
+                    <Switch
+                      checked={settings.notify_1_day_before}
+                      onCheckedChange={(checked) => 
+                        updateSettings({ notify_1_day_before: checked })
+                      }
+                    />
+                  </div>
+                  
+                  <div className="flex items-center justify-between rounded-lg border border-border p-4">
+                    <div>
+                      <p className="font-medium text-foreground">No dia do vencimento</p>
+                      <p className="text-sm text-muted-foreground">
+                        Receber alerta no dia do vencimento
+                      </p>
+                    </div>
+                    <Switch
+                      checked={settings.notify_on_due_date}
+                      onCheckedChange={(checked) => 
+                        updateSettings({ notify_on_due_date: checked })
+                      }
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* Outras notificações do sistema */}
+              <Separator className="my-6" />
+              
+              <div className="flex items-center justify-between rounded-lg border border-border p-4">
+                <div>
+                  <p className="font-medium text-foreground">Relatório semanal</p>
+                  <p className="text-sm text-muted-foreground">
+                    Receba um resumo das suas finanças toda semana
+                  </p>
+                </div>
+                <Switch
+                  checked={notifications.weeklyReport}
+                  onCheckedChange={(checked) => setNotifications({ ...notifications, weeklyReport: checked })}
+                />
               </div>
-              <Switch
-                checked={notifications.goalAlerts}
-                onCheckedChange={(checked) => setNotifications({ ...notifications, goalAlerts: checked })}
-              />
+              
+              <div className="flex items-center justify-between rounded-lg border border-border p-4">
+                <div>
+                  <p className="font-medium text-foreground">Alertas de metas</p>
+                  <p className="text-sm text-muted-foreground">
+                    Seja notificado quando atingir ou ultrapassar metas
+                  </p>
+                </div>
+                <Switch
+                  checked={notifications.goalAlerts}
+                  onCheckedChange={(checked) => setNotifications({ ...notifications, goalAlerts: checked })}
+                />
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Appearance Section */}
@@ -191,7 +298,11 @@ export default function Configuracoes() {
 
         {/* Logout */}
         <div className="flex justify-center pb-6">
-          <Button variant="outline" className="text-destructive hover:text-destructive">
+          <Button 
+            variant="outline" 
+            className="text-destructive hover:text-destructive"
+            onClick={handleLogout}
+          >
             <LogOut className="mr-2 h-4 w-4" />
             Sair da conta
           </Button>
