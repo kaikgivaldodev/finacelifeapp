@@ -183,6 +183,30 @@ export type Database = {
           },
         ]
       }
+      bills_instances_date_backup_20251219: {
+        Row: {
+          created_at: string | null
+          due_date: string | null
+          id: string | null
+          reference_month: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          due_date?: string | null
+          id?: string | null
+          reference_month?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          due_date?: string | null
+          id?: string | null
+          reference_month?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       credit_card_statements: {
         Row: {
           closing_date: string | null
@@ -300,6 +324,27 @@ export type Database = {
           },
         ]
       }
+      credit_card_transactions_date_backup_20251219: {
+        Row: {
+          created_at: string | null
+          date: string | null
+          id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          date?: string | null
+          id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          date?: string | null
+          id?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       credit_cards: {
         Row: {
           best_purchase_day: number | null
@@ -406,6 +451,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      fixed_bills_date_backup_20251219: {
+        Row: {
+          created_at: string | null
+          end_date: string | null
+          id: string | null
+          start_date: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          end_date?: string | null
+          id?: string | null
+          start_date?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          end_date?: string | null
+          id?: string | null
+          start_date?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
       }
       goals: {
         Row: {
