@@ -43,6 +43,7 @@ import { useGoals, CreateGoalData, UpdateGoalData, GoalWithCalculatedAmount } fr
 import { format, startOfMonth } from "date-fns";
 import { z } from "zod";
 import { toast } from "sonner";
+import { CategorySpendingChart } from "@/components/dashboard/CategorySpendingChart";
 
 // Schema de validação
 const goalSchema = z.object({
@@ -336,6 +337,9 @@ export default function Metas() {
                 </div>
               </div>
             </div>
+
+            {/* Category Spending Chart */}
+            <CategorySpendingChart />
 
             {/* Filters */}
             <div className="flex flex-wrap gap-2">
