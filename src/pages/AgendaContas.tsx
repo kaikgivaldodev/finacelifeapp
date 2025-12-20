@@ -449,7 +449,7 @@ export default function AgendaContas() {
                           "text-xs font-medium",
                           isToday ? "text-primary-foreground" : "text-muted-foreground"
                         )}>
-                          {format(date, "EEE", { locale: ptBR }).toUpperCase()}
+                          {format(date, "EEEEEE", { locale: ptBR }).toUpperCase()}
                         </span>
                         <span className={cn(
                           "text-xl font-bold",
